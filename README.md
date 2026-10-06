@@ -6,6 +6,9 @@ aggregation and human-in-the-loop deferral.
 Final-year capstone · BSc Software Engineering (Machine Learning) ·
 African Leadership University · Glory Paul
 
+**Live API:** https://bilharz-api.onrender.com/docs
+*(free tier — the first request after a quiet period takes ~30s to wake)*
+
 ---
 
 ## The problem
@@ -124,6 +127,8 @@ is therefore load-bearing for the central claim, not an optional later refinemen
 A FastAPI service exposes the decision path, with interactive documentation at
 `/docs`.
 
+**Live:** https://bilharz-api.onrender.com/docs
+
 | Endpoint | Purpose |
 |---|---|
 | `GET /samples/{id}/predict` | Score a sample; return a verdict **or a deferral** |
@@ -134,6 +139,11 @@ A FastAPI service exposes the decision path, with interactive documentation at
 
 Reviewer verdicts are stored for audit and are **not** used to retrain the model.
 
+Try `DT29` for a deferral, `DT12` for a confident positive, `DT02` for a confident
+negative.
+
+Running it locally:
+
 ```bash
 cd api
 python3 -m venv venv && source venv/bin/activate
@@ -143,6 +153,15 @@ uvicorn app:app --reload
 ```
 
 Interface mockups for the reviewer workflow are in `design/`.
+
+## Repository
+bilharz/
+├── api/ FastAPI service and its dependencies
+├── notebooks/ Data preparation and modelling
+├── figures/ Generated figures
+├── design/ Interface mockups
+└── README.md
+
 
 ## Reproducing
 
@@ -166,6 +185,8 @@ Both run on Kaggle with a T4 GPU. End to end is roughly 30 minutes, most of it t
   undertaken.
 - The deferral evaluation itself — risk–coverage curves, AURC, calibration, and a
   random-deferral control at matched budget — is **not yet implemented**.
+- The deployed service uses stored probabilities rather than live inference; it
+  demonstrates the decision path, not production serving.
 
 ## Next
 
