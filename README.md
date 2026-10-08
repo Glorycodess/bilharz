@@ -9,7 +9,7 @@ African Leadership University · Glory Paul
 | | |
 |---|---|
 | **Repository** | https://github.com/Glorycodess/bilharz |
-| **Live API** | https://bilharz-api.onrender.com/docs |
+| **Live API** | https://bilharz.onrender.com/docs |
 | **Figma mockups** | `<paste your Figma share link>` |
 | **Video demo** | `<paste your video link>` |
 
@@ -107,6 +107,18 @@ which is why a per-image rule fails at the patient level.*
 
 ## 2. Setting up the environment
 
+### Trying it without installing anything
+
+The API is live at **https://bilharz.onrender.com/docs**. Open it, expand
+`GET /samples/{sample_id}/predict`, click **Try it out**, and enter a sample ID.
+
+Try `DT29` for a referral, `DT12` for a confident positive, `DT02` for a confident
+negative.
+
+It runs on Render's free tier, which puts the service to sleep after fifteen minutes
+of inactivity. The first request after that takes about fifty seconds while the
+container wakes. It is not broken — give it a moment.
+
 ### Requirements
 - Python 3.10+
 - A Kaggle account (for the notebooks — they need a GPU and the hosted dataset)
@@ -123,10 +135,8 @@ pip install -r requirements.txt
 uvicorn app:app --reload
 ```
 
-Open **http://127.0.0.1:8000/docs**.
-
-Try `DT29` for a referral, `DT12` for a confident positive, `DT02` for a confident
-negative.
+Open **http://127.0.0.1:8000/docs**. Same interface as the hosted version, with no
+cold start.
 
 ### Running the notebooks
 
@@ -182,9 +192,12 @@ produces.
 ## 4. Deployment plan
 
 **Current.** The API is a FastAPI service with auto-generated OpenAPI docs, deployed
-to Render's free tier from this repository. Pushes to `main` redeploy automatically.
-It serves stored probabilities rather than running live inference — it demonstrates
-the decision path, not production serving.
+to Render's free tier from this repository at
+[bilharz.onrender.com](https://bilharz.onrender.com/docs). Pushes to `master`
+redeploy automatically. It serves stored probabilities rather than running live
+inference — it demonstrates the decision path, not production serving. The free tier
+sleeps after fifteen minutes idle, so the first request wakes the container and takes
+roughly fifty seconds.
 
 **Next.** Package the trained model with the service, load weights at startup, and
 accept an uploaded sample folder instead of a sample ID. Add a persistent store for
