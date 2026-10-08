@@ -10,7 +10,7 @@ African Leadership University · Glory Paul
 |---|---|
 | **Repository** | https://github.com/Glorycodess/bilharz |
 | **Live API** | https://bilharz.onrender.com/docs |
-| **Figma mockups** | `<paste your Figma share link>` |
+| **Figma mockups** | https://www.figma.com/design/yNDxzYmsbYGOrhljmDWXmz/Bilharz |
 | **Video demo** | `<paste your video link>` |
 
 ---
@@ -36,6 +36,14 @@ bleeding, pain during intercourse, vulval nodules, and ectopic pregnancies. It i
 recognised risk factor for HIV infection, particularly in women. In men it damages
 the seminal vesicles and prostate, causes blood in semen and painful ejaculation,
 and can lead to infertility.
+
+**In children the harm is cumulative rather than dramatic**, which is exactly what
+makes it easy to miss. Repeated infection through childhood causes chronic anaemia,
+stunted growth, and reduced ability to concentrate and learn — damage spread across
+the years of schooling that shape everything after them. A child rarely looks
+acutely ill, so an infection can run untreated for years while quietly costing them
+height, blood and schooling. Children also keep the cycle turning: they swim, play
+and fish in the same water their eggs return to.
 
 ### Who it affects
 
@@ -94,10 +102,12 @@ Bilharz builds that step, and adds what the published system lacks: the ability 
 
 ![Bilharz system flow](figures/bilharz-architecture.png)
 
-*No one selects images. The whole sample folder goes in; the system does the
-selecting, and only at the end — the twelve regions a reviewer sees are the twelve
-the model scored highest out of 1,404. The current build starts from a stored sample
-rather than an upload (see section 4); everything after that point is implemented.*
+*Reading left to right: the microscope hands over all 117 images of a sample, and
+Bilharz works through every region of every frame before producing a single
+probability for the patient. Only the cases that land inside the uncertainty band
+reach a person — and that person opens twelve ranked regions rather than 117 full
+frames. In the current build the API reads a stored sample rather than accepting an
+upload; section 4 covers what that would take.*
 
 ![Example fields of view](figures/fig_fov_examples.png)
 
@@ -135,8 +145,9 @@ pip install -r requirements.txt
 uvicorn app:app --reload
 ```
 
-Open **http://127.0.0.1:8000/docs**. Same interface as the hosted version, with no
-cold start.
+The same interface is then served at `http://127.0.0.1:8000/docs`, with no cold
+start. That address only resolves on the machine running the command above — it is
+not a link you can follow from here.
 
 ### Running the notebooks
 
@@ -156,8 +167,9 @@ cross-validated modelling run is the rest.
 
 ## 3. Designs
 
-Seven screens covering the reviewer workflow. Full-resolution exports are in
-`design/`.
+Seven screens covering the reviewer workflow. The working file is on
+[Figma](https://www.figma.com/design/yNDxzYmsbYGOrhljmDWXmz/Bilharz); full-resolution
+exports are in `design/`.
 
 | Screen | Purpose |
 |---|---|
@@ -326,15 +338,30 @@ bilharz/
 
 ## Limitations
 
+Three of these constrain what the results can be said to establish.
+
+**n = 65.** Sixty-five patients is a small sample for a comparison between four
+aggregation strategies. Intervals are wide, and several of the differences reported
+above are not separable from noise. The direction of the tiled max-pooling result is
+consistent across repeats, but the magnitude is not something to quote precisely.
+
+**The encoder is frozen and generic.** ResNet50 features trained on ImageNet have
+never seen a parasite egg. Every number here is a floor rather than a ceiling, and
+the instance scorer built on those features is hesitant where a trained detector
+would be decisive — which is why finding 4 above matters.
+
+**The deferral evaluation is not built yet.** Risk–coverage curves, AURC,
+calibration and a random-deferral control are what would show that deferring on
+uncertain cases is better than deferring at random. Without them, the abstention
+mechanism is demonstrated but not yet validated.
+
+Smaller constraints:
+
 - Meulah et al.'s reported specificity cannot be reproduced literally without their
   detector; max-pooling and the k = 1 rule stand in for it.
-- The encoder is frozen and has never been fine-tuned on microscopy.
-- n = 65. All intervals are wide and several comparisons remain inconclusive.
-- Tiles do not overlap, so eggs on a tile boundary are split.
+- Tiles do not overlap, so an egg on a tile boundary is split across two instances.
 - Reviewer behaviour is simulated against the expert microscopist reference
   standard. No human participants are involved.
-- The deferral evaluation itself — risk–coverage curves, AURC, calibration, and a
-  random-deferral control — is not yet implemented.
 - The deployed service uses stored probabilities rather than live inference, and
   accepts a sample ID rather than an uploaded folder.
 - Interface mockups use conceptual illustrative microscopy, not diagnostic imagery.
