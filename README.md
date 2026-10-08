@@ -181,6 +181,8 @@ connectivity. A realistic deployment runs inference on or beside the microscope 
 synchronises records when a connection is available, rather than assuming a live
 server.
 
+![Bilharz system flow](figures/bilharz-architecture.png)
+
 ## 5. Video demo
 
 <paste link>
