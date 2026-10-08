@@ -35,15 +35,11 @@ In women it causes **female genital schistosomiasis** — genital lesions, vagin
 bleeding, pain during intercourse, vulval nodules, and ectopic pregnancies. It is a
 recognised risk factor for HIV infection, particularly in women. In men it damages
 the seminal vesicles and prostate, causes blood in semen and painful ejaculation,
-and can lead to infertility.
+and can lead to infertility. In children it causes chronic anaemia, stunted growth
+and impaired learning, and because a child rarely looks acutely ill it can run
+untreated for years.
 
-**In children the harm is cumulative rather than dramatic**, which is exactly what
-makes it easy to miss. Repeated infection through childhood causes chronic anaemia,
-stunted growth, and reduced ability to concentrate and learn — damage spread across
-the years of schooling that shape everything after them. A child rarely looks
-acutely ill, so an infection can run untreated for years while quietly costing them
-height, blood and schooling. Children also keep the cycle turning: they swim, play
-and fish in the same water their eggs return to.
+
 
 ### Who it affects
 
@@ -154,11 +150,11 @@ not a link you can follow from here.
 The notebooks run on Kaggle, not locally — they need a GPU and a 2.5 GB image
 dataset hosted there.
 
-1. Upload `notebooks/00_mirror_diagnosis_dataset.ipynb` to Kaggle. Enable
+1. Upload `notebooks/00-mirror-diagnosis-dataset.ipynb` to Kaggle. Enable
    **Internet**, accelerator **None**. Run it. It downloads the archive from Zenodo,
    verifies its MD5, asserts its structure, and saves the prepared dataset as
    notebook output.
-2. Upload `notebooks/01_bags_and_mil.ipynb`. Attach the output of notebook 00 as
+2. Upload `notebooks/01-bags-and-mil.ipynb`. Attach the output of notebook 00 as
    input. Enable **GPU (T4)** and **Internet**. Run it. Roughly 20 minutes.
 
 End to end is about 45 minutes: the 12.5 GB download takes six minutes over sixteen
