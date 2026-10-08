@@ -6,10 +6,12 @@ aggregation and human-in-the-loop deferral.
 Final-year capstone · BSc Software Engineering (Machine Learning) ·
 African Leadership University · Glory Paul
 
-**Repository:** https://github.com/Glorycodess/bilharz
-**Live API:** https://bilharz-api.onrender.com/docs
-**Figma mockups:** <paste your Figma share link>
-**Video demo:** <paste your video link>
+| | |
+|---|---|
+| **Repository** | https://github.com/Glorycodess/bilharz |
+| **Live API** | https://bilharz-api.onrender.com/docs |
+| **Figma mockups** | `<paste your Figma share link>` |
+| **Video demo** | `<paste your video link>` |
 
 ---
 
@@ -45,7 +47,7 @@ impaired learning during the years that matter most.
 
 As of 2024, WHO reports:
 
-| | |
+| Measure | Figure |
 |---|---|
 | People requiring preventive treatment | **253.7 million** |
 | People actually treated | **100.5 million** |
@@ -90,6 +92,13 @@ not been treated as a modelling problem in this pipeline.
 Bilharz builds that step, and adds what the published system lacks: the ability to
 **abstain** and refer an uncertain case to a human rather than guess.
 
+![Bilharz system flow](figures/bilharz-architecture.png)
+
+*No one selects images. The whole sample folder goes in; the system does the
+selecting, and only at the end — the twelve regions a reviewer sees are the twelve
+the model scored highest out of 1,404. The current build starts from a stored sample
+rather than an upload (see section 4); everything after that point is implemented.*
+
 ![Example fields of view](figures/fig_fov_examples.png)
 
 *Four of the 117 frames from one heavily infected patient (516 eggs) and one
@@ -131,7 +140,9 @@ dataset hosted there.
 2. Upload `notebooks/01_bags_and_mil.ipynb`. Attach the output of notebook 00 as
    input. Enable **GPU (T4)** and **Internet**. Run it. Roughly 20 minutes.
 
-End to end is about 30 minutes, most of it the 12.5 GB download.
+End to end is about 45 minutes: the 12.5 GB download takes six minutes over sixteen
+parallel connections, resizing the 7,605 images takes another six, and the
+cross-validated modelling run is the rest.
 
 ## 3. Designs
 
@@ -163,6 +174,11 @@ abstention band is a draggable range, and widening it shows coverage falling and
 specificity rising in real time — the central trade-off of the system, made
 adjustable rather than buried in a config file.
 
+**Known gap.** There is no upload screen. The flow in section 1 begins with a
+technician uploading a sample folder, and no mockup covers that step — it is the
+first screen to add, ahead of Batch report, which nothing in the current pipeline
+produces.
+
 ## 4. Deployment plan
 
 **Current.** The API is a FastAPI service with auto-generated OpenAPI docs, deployed
@@ -181,11 +197,9 @@ connectivity. A realistic deployment runs inference on or beside the microscope 
 synchronises records when a connection is available, rather than assuming a live
 server.
 
-![Bilharz system flow](figures/bilharz-architecture.png)
-
 ## 5. Video demo
 
-<paste link>
+`<paste your video link>`
 
 ---
 
@@ -288,17 +302,18 @@ Reviewer verdicts are stored for audit and are **not** used to retrain the model
 
 ## Repository structure
 
+```
 bilharz/
-├── api/ FastAPI service and dependencies
-├── notebooks/ Data preparation and modelling
-├── figures/ Generated figures
-├── design/ Interface mockups
+├── api/          FastAPI service and dependencies
+├── notebooks/    Data preparation and modelling
+├── figures/      Generated figures and the system diagram
+├── design/       Interface mockups
 └── README.md
-
+```
 
 ## Limitations
 
-- Oyibo et al.'s reported specificity cannot be reproduced literally without their
+- Meulah et al.'s reported specificity cannot be reproduced literally without their
   detector; max-pooling and the k = 1 rule stand in for it.
 - The encoder is frozen and has never been fine-tuned on microscopy.
 - n = 65. All intervals are wide and several comparisons remain inconclusive.
@@ -307,7 +322,8 @@ bilharz/
   standard. No human participants are involved.
 - The deferral evaluation itself — risk–coverage curves, AURC, calibration, and a
   random-deferral control — is not yet implemented.
-- The deployed service uses stored probabilities rather than live inference.
+- The deployed service uses stored probabilities rather than live inference, and
+  accepts a sample ID rather than an uploaded folder.
 - Interface mockups use conceptual illustrative microscopy, not diagnostic imagery.
 
 ## Next
@@ -322,11 +338,18 @@ bilharz/
 World Health Organization (2025). *Schistosomiasis fact sheet.*
 https://www.who.int/news-room/fact-sheets/detail/schistosomiasis
 
-Meulah, B. et al. (2022). *Performance evaluation of the Schistoscope 5.0.*
-Parasites & Vectors.
+Meulah, B., Oyibo, P., Bengtson, M., Agbana, T., Lontchi, R. A. L., Adegnika, A. A.,
+Oyibo, W., Hokke, C. H., Diehl, J. C., van Lieshout, L. (2022). Performance
+evaluation of the Schistoscope 5.0 for (semi-)automated digital detection and
+quantification of *Schistosoma haematobium* eggs in urine: a field-based study in
+Nigeria. *American Journal of Tropical Medicine and Hygiene* 107(5), 1047–1054.
+https://doi.org/10.4269/ajtmh.22-0276
 
-Oyibo, P. et al. (2023). Schistoscope: an automated microscope with artificial
-intelligence for detection of *Schistosoma haematobium* eggs. *Micromachines* 13(5), 643.
+Oyibo, P., Jujjavarapu, S., Meulah, B., Agbana, T., Braakman, I., van Diepen, A.,
+Bengtson, M., van Lieshout, L., Oyibo, W., Vdovine, G., Diehl, J. C. (2022).
+Schistoscope: an automated microscope with artificial intelligence for detection of
+*Schistosoma haematobium* eggs in resource-limited settings. *Micromachines* 13(5),
+643. https://doi.org/10.3390/mi13050643
 
 Ilse, M., Tomczak, J. M., Welling, M. (2018). Attention-based deep multiple instance
 learning. *ICML*.
