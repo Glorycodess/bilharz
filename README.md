@@ -11,7 +11,7 @@ African Leadership University · Glory Paul
 | **Repository** | https://github.com/Glorycodess/bilharz |
 | **Live API** | https://bilharz.onrender.com/docs |
 | **Figma mockups** | https://www.figma.com/design/yNDxzYmsbYGOrhljmDWXmz/Bilharz |
-| **Video demo** | `<paste your video link>` |
+| **Video demo** | https://youtu.be/ufj1dCEyPjw |
 
 ---
 
@@ -220,7 +220,11 @@ server.
 
 ## 5. Video demo
 
-`<paste your video link>`
+**[Watch the demo (YouTube)](https://youtu.be/ufj1dCEyPjw)**
+
+A walkthrough of the clinical problem, the aggregation design, the modelling
+notebook and its cross-validation, a live call against the deployed API showing a
+deferred case, and the limitations.
 
 ---
 
