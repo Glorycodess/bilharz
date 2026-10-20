@@ -147,19 +147,20 @@ not a link you can follow from here.
 
 ### Running the notebooks
 
-The notebooks run on Kaggle, not locally — they need a GPU and a 2.5 GB image
-dataset hosted there.
+The notebooks run on Kaggle, not locally: they need a GPU, and they download their
+datasets from Zenodo. Run each with **Save & Run All (Commit)** so its outputs are
+kept.
 
-1. Upload `notebooks/00-mirror-diagnosis-dataset.ipynb` to Kaggle. Enable
-   **Internet**, accelerator **None**. Run it. It downloads the archive from Zenodo,
-   verifies its MD5, asserts its structure, and saves the prepared dataset as
-   notebook output.
-2. Upload `notebooks/01-bags-and-mil.ipynb`. Attach the output of notebook 00 as
-   input. Enable **GPU (T4)** and **Internet**. Run it. Roughly 20 minutes.
+| Notebook | What it does | Kaggle settings |
+|---|---|---|
+| `01-data-collection.ipynb` | Downloads the diagnosis dataset, verifies its MD5, asserts the 65 × 117 structure, and writes a manifest and provenance record | Internet on |
+| `02-data-preparation.ipynb` | Data preparation and exploratory analysis; the baseline with frozen ImageNet features: aggregation comparison and the first deferral test | Internet on, GPU T4 |
+| `03-detection.ipynb` | Trains the egg detector on tiles from a separate dataset, labelled from expert masks | Internet on, GPU T4 |
+| `04-prediction.ipynb` | Scores all 65 patients with the detector, applies the triage rule, compares it with alternative systems, and evaluates deferral | Internet on, GPU T4, output of `03` attached |
 
-End to end is about 45 minutes: the 12.5 GB download takes six minutes over sixteen
-parallel connections, resizing the 7,605 images takes another six, and the
-cross-validated modelling run is the rest.
+Notebook 04 takes about 55 minutes end to end, most of it the 12.5 GB download.
+Its tile scores are saved to `results/patient_scores.npz`, so every analysis after
+scoring can be re-run from that file without the images.
 
 ## 3. Designs
 
@@ -202,8 +203,8 @@ produces.
 **Current.** The API is a FastAPI service with auto-generated OpenAPI docs, deployed
 to Render's free tier from this repository at
 [bilharz.onrender.com](https://bilharz.onrender.com/docs). Pushes to `master`
-redeploy automatically. It serves stored probabilities rather than running live
-inference — it demonstrates the decision path, not production serving. The free tier
+redeploy automatically. It serves stored probabilities from the earlier, pre-detector model rather than
+running live inference — it demonstrates the decision path, not production serving. The free tier
 sleeps after fifteen minutes idle, so the first request wakes the container and takes
 roughly fifty seconds.
 
@@ -249,69 +250,153 @@ infection is an early infection — the patient you most want to catch, before t
 scarring starts. They are also where a single missed or spurious detection among
 1,404 regions flips the verdict.
 
-## Model
+## Method
 
-A frozen ImageNet ResNet50 encodes each instance; the feature map is average- *and*
-max-pooled and concatenated (4096-d). Two representations are compared: whole frame
-(117 instances per patient) and a 3 × 4 tiling (1,404 instances).
+### Baseline: frozen ImageNet features (notebook 02)
 
-Aggregation is gated attention MIL (Ilse et al., 2018) against two parameter-free
-baselines — mean-pooling and max-pooling — plus a top-k sweep where k = 1 is the
-any-detection rule and k = 1404 is mean-pooling.
+The first approach encoded each frame, and each tile of a 3 × 4 grid, with a frozen
+ImageNet ResNet50, and compared gated attention MIL (Ilse et al., 2018) with mean-
+and max-pooling. Two findings shaped everything after it:
 
-Validation is repeated stratified 5-fold cross-validation, 5 repeats, 25 fitted
-models. **Splits are over patients only**; all instances of a patient move together.
-Image-level splitting would let the model recognise a patient rather than the
-disease, and is the principal leakage risk in this design.
+- **Attention MIL did not beat max-pooling** at n = 65. It concentrated confidently
+  on the wrong instances: with 52 training bags and no instance-level supervision,
+  the parameter-free operator wins because it has nothing to overfit.
+- **Confidence-based deferral was no better than random** (AURC 0.2755 vs 0.2829).
+  Features trained on everyday photographs carry no knowledge of what an egg looks
+  like, so the model's confidence did not track its errors.
 
-## Initial performance
+The conclusion was that a scorer trained on eggs was required, not optional.
 
-Whole-frame representation, mean ± sd over 5 repeats:
+### Egg detector (notebook 03)
 
-| | AUROC | Sens@0.5 | Spec@0.5 | Spec@90%Sens | Sens, low burden |
-|---|---|---|---|---|---|
-| Attention MIL | 0.744 ± 0.039 | 0.681 | 0.673 | 0.442 | 0.511 |
-| Max-pooling | 0.739 ± 0.023 | 0.731 | 0.727 | 0.333 | 0.556 |
-| Mean-pooling | 0.721 ± 0.023 | 0.675 | 0.655 | 0.406 | 0.533 |
+A ResNet18, pre-trained on ImageNet and then fully fine-tuned, scores 256 × 256
+tiles. Training tiles come from **SHdataset_12k**, a separate dataset with
+expert-drawn egg masks and **no patients in common** with the 65 used for
+evaluation. Each frame is resized to 1024 × 768 and cut into a 3 × 4 grid, the
+same geometry used at inference; a tile is positive if it holds at least 500
+marked egg pixels. About 32,000 tiles were used, with random flips and rotations.
+Validation AUROC on held-out tiles is **0.985**.
 
-Tiled representation:
+### Patient-level triage (notebook 04)
 
-| | AUROC | Sens@0.5 | Spec@0.5 | Spec@90%Sens | Sens, low burden |
-|---|---|---|---|---|---|
-| Attention MIL | 0.631 ± 0.030 | 0.613 | 0.606 | 0.248 | 0.511 |
-| **Max-pooling** | **0.759 ± 0.022** | 0.731 | 0.679 | 0.461 | **0.644** |
-| Mean-pooling | 0.681 ± 0.024 | 0.650 | 0.636 | 0.285 | 0.489 |
+Each patient's 117 frames give **1,404 tiles**, each scored by the detector. The
+patient is summarised by how many tiles the detector is confident contain an egg,
+and a three-way rule decides:
 
-![Whole frame vs tiled](figures/fig_frame_vs_tiled.png)
-![Specificity against aggregation breadth](figures/fig_topk_specificity.png)
+| Confident tiles | Decision |
+|---|---|
+| None | Cleared automatically (negative) |
+| More than any healthy patient in training | Flagged automatically (positive) |
+| In between | **Referred to a reviewer** |
 
-### Findings
+The confidence threshold and both cut-offs are learned from training patients only.
 
-**1. Attention-based MIL does not beat max-pooling at n = 65**, and is substantially
-worse on the finer representation (−0.113 AUROC). The cause is measured rather than
-assumed: attention concentrates on about 11% of the bag, with the ten
-highest-weighted tiles carrying roughly half the total mass — seventy times uniform.
-It is not failing to concentrate; it is concentrating confidently on the wrong
-instances. With 52 training bags, ~1M parameters and no instance-level supervision,
-the parameter-free operator wins because it has nothing to overfit.
+### Validation
 
-**2. The diagnostic signal is extreme-valued, not distributed.** Moving to finer
-instances changed AUROC by **+0.020** for max-pooling, **−0.040** for mean-pooling
-and **−0.113** for attention. Finer tiles make a single egg occupy a far larger
-share of its own instance, which rewards selection and penalises averaging.
+Repeated stratified 5-fold cross-validation, 20 repeats, split over **patients**,
+so all of a patient's tiles stay on the same side of a split. Every choice a system
+makes, including the confidence threshold, is made inside the folds. Samples
+referred to a reviewer are assumed to be read correctly, the same assumption behind
+the full-review baseline. 95% intervals are exact Clopper–Pearson intervals over
+patients.
 
-**3. Aggregation breadth has a modest, operating-point-dependent effect.** At a 90%
-sensitivity target, specificity rises from **0.376 (k = 1)** to **0.479 (k = 500)**.
-At an 80% target, k = 1 is best. AUROC is nearly flat across the sweep
-(0.714–0.748). The k = 1 rule is also the least stable configuration measured —
-spread of 0.091 versus 0.030 at k = 500 — and unpredictable specificity across sites
-is itself a deployment failure.
+## Results
 
-**4. The published specificity collapse is not dramatically reproduced here, and
-that is informative.** The collapse requires a detector that is *confident and
-wrong*. The instance scorer used here is a linear probe on frozen generic features —
-hesitant rather than confident — so the failure mode is muted. **The trained
-detector is load-bearing for the central claim, not an optional refinement.**
+### The any-detection failure reproduces
+
+Calling a patient positive if any tile scores above 0.5, the logic of the
+Schistoscope, gives **100% sensitivity and 0% specificity**: every healthy sample
+contains at least one confident false alarm among its 1,404 tiles.
+
+### The detector separates patients
+
+| Patient score | AUROC |
+|---|---|
+| Highest tile (max) | **0.950** |
+| Mean of top 3 tiles | 0.903 |
+| Mean of all tiles | 0.616 |
+
+Averaging dilutes the signal, because egg tiles are rare. The maximum, though,
+saturates: many healthy patients also have one tile near 1.0, which is why the
+triage rule counts confident tiles instead.
+
+![Patient max scores by diagnosis](figures/fig_patient_scores.png)
+
+### Comparison with alternative systems
+
+All systems evaluated on the same held-out patients:
+
+| System | Sensitivity | Specificity | Samples reviewed |
+|---|---|---|---|
+| Any-detection (tile > 0.5) | 100.0% | 0.0% | 0% |
+| Max score, single threshold | 85.6% | 83.6% | 0% |
+| Count, single threshold | 79.4% | 86.7% | 0% |
+| Random deferral | 88.8% | 93.3% | 45.8% |
+| **Triage (Bilharz)** | **96.9%** | **96.7%** | **45.8%** |
+| Full human review | 100.0% | 100.0% | 100% |
+
+With intervals: sensitivity **96.9% (83.8–99.9%)**, specificity **96.7%
+(83.8–99.9%)**, samples reviewed **45.8% (33.4–58.7%)**.
+
+Fully automatic systems miss 15–21% of infected patients. Random deferral, with
+exactly the same reviewer workload as triage, does markedly worse: what matters is
+*which* samples go to the reviewer.
+
+### Confidence-based deferral beats random deferral
+
+| | AURC (lower is better) | Error at 50% coverage |
+|---|---|---|
+| **Confidence** | **0.095 ± 0.013** | **8.0%** |
+| Random | 0.206 ± 0.016 | 20.9% |
+| Oracle (best possible) | 0.024 | — |
+
+Confidence beats random in **20 of 20** repeats. With the frozen ImageNet features
+of notebook 02, the two were indistinguishable.
+
+![Risk–coverage curve, nested threshold selection](figures/fig_risk_coverage_nested.png)
+
+### The one missed infection, and a safety margin
+
+The single missed infection is one patient, DT40 (7 eggs). Its eggs score between
+0.99 and 0.995, and it was cleared only in folds where it was held out and the
+training patients chose the stricter threshold.
+
+A variant **designed after this failure was observed**, and reported as an extra
+analysis rather than the main result, adds a safety margin: a threshold may be
+chosen only if every infected training patient has at least two confident tiles.
+
+| | Sensitivity | Specificity | Samples reviewed |
+|---|---|---|---|
+| Triage | 96.9% | 96.7% | 45.8% |
+| Triage + safety margin | 100.0% (≥ 89.1%) | 96.5% | 72.1% |
+
+The margin prevents the observed miss at the cost of more review. The two
+sensitivity intervals overlap, so the margin is not shown to be more sensitive;
+the workload difference is clear.
+
+### What the hard cases look like
+
+![Top-scoring tiles for the hardest patients](figures/fig_hard_cases.png)
+
+*The six highest-scoring tiles for the three healthy patients with the most
+confident tiles (top) and the three infected patients with the fewest (bottom).*
+Confident false alarms concentrate in debris- and fibre-heavy samples; the
+hardest infected patients carry a single egg. By count alone the two cannot be
+told apart, which is the case for referring them to a reviewer.
+
+## Findings
+
+1. **The failure is in the decision rule, not the detector.** The same scores give
+   0% specificity under any-detection and 96.7% under triage.
+2. **A trained detector is what makes deferral work.** Generic features gave
+   deferral no better than random; the detector gives AURC 0.095 against 0.206.
+3. **Triage reaches near-full-review accuracy at less than half the workload**, on
+   this cohort: 96.9% sensitivity and 96.7% specificity with 45.8% of samples
+   reviewed.
+4. **Simple aggregation of a good detector beats learned aggregation** at this
+   sample size.
+5. **Safety and workload trade off directly.** Preventing the one observed miss
+   raises review from 46% to 72%.
 
 ## API endpoints
 
@@ -330,48 +415,49 @@ Reviewer verdicts are stored for audit and are **not** used to retrain the model
 ```
 bilharz/
 ├── api/          FastAPI service and dependencies
-├── notebooks/    Data preparation and modelling
+├── notebooks/    Data collection, preparation, detection and prediction
+├── results/      Saved tile scores for the 65 patients
 ├── figures/      Generated figures and the system diagram
 ├── design/       Interface mockups
 └── README.md
 ```
 
+An earlier exploratory notebook (`01-bags-and-mil`) was superseded and removed; it
+remains in the repository history.
+
 ## Limitations
 
-Three of these constrain what the results can be said to establish.
+**n = 65.** Every estimate carries a wide interval: sensitivity and specificity
+are plausibly anywhere from the mid-80s to near 100%. The results show the
+approach works on this cohort; they do not establish clinical performance.
 
-**n = 65.** Sixty-five patients is a small sample for a comparison between four
-aggregation strategies. Intervals are wide, and several of the differences reported
-above are not separable from noise. The direction of the tiled max-pooling result is
-consistent across repeats, but the magnitude is not something to quote precisely.
+**One dataset, no external validation of the triage rule.** The detector is tested
+on patients it never saw, from a different dataset, but the triage cut-offs are
+learned and tested within the same 65 patients. A prospective cohort from another
+site is required.
 
-**The encoder is frozen and generic.** ResNet50 features trained on ImageNet have
-never seen a parasite egg. Every number here is a floor rather than a ceiling, and
-the instance scorer built on those features is hesitant where a trained detector
-would be decisive — which is why finding 4 above matters.
-
-**The deferral evaluation is not built yet.** Risk–coverage curves, AURC,
-calibration and a random-deferral control are what would show that deferring on
-uncertain cases is better than deferring at random. Without them, the abstention
-mechanism is demonstrated but not yet validated.
+**The cut-offs depend on the most extreme patients in training.** The upper cut-off
+moves with the healthy patient with the most confident tiles; the clearing rule
+depends on the faintest infected patient, as DT40 shows.
 
 Smaller constraints:
 
-- Meulah et al.'s reported specificity cannot be reproduced literally without their
-  detector; max-pooling and the k = 1 rule stand in for it.
-- Tiles do not overlap, so an egg on a tile boundary is split across two instances.
 - Reviewer behaviour is simulated against the expert microscopist reference
   standard. No human participants are involved.
-- The deployed service uses stored probabilities rather than live inference, and
-  accepts a sample ID rather than an uploaded folder.
+- The detector's false alarms concentrate in debris- and fibre-heavy samples.
+- Tiles do not overlap, so an egg on a tile boundary is split across two tiles.
+- Published Schistoscope figures come from a different detector and pipeline, so
+  they are context rather than a like-for-like comparison.
+- The deployed service predates the detector and still serves the earlier model.
 - Interface mockups use conceptual illustrative microscopy, not diagnostic imagery.
 
 ## Next
 
-1. Mirror the detector dataset (`SHdataset_12k`, 103 samples, disjoint from these 65)
-2. Train the egg detector
-3. Repeat the aggregation sweep with detector confidences
-4. Build the deferral evaluation
+1. Serve the detector and triage rule from the API, with the safety margin as the
+   default setting
+2. Build the reviewer interface around the ranked tiles
+3. Retrain the detector with debris and fibre examples as negatives
+4. Validate prospectively on field samples from another site
 
 ## References
 
