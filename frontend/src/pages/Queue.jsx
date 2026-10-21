@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getConfig, getQueue } from '../api.js'
+import { getConfig, getPerformance, getQueue } from '../api.js'
 import { useApi } from '../useApi.js'
 import { countWaiting, useReviews } from '../reviews.js'
 import Button from '../components/Button.jsx'
@@ -18,15 +18,20 @@ const FILTERS = [
 export default function Queue() {
   const queue = useApi(getQueue)
   const config = useApi(getConfig)
+  const performance = useApi(getPerformance)
   const { reviews } = useReviews()
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
 
-  if (!queue || !config) return <div className="container page" aria-busy="true" />
+  if (!queue || !config || !performance) return <div className="container page" aria-busy="true" />
 
   const reviewed = new Set(reviews.map((r) => r.id))
   const count = (key) => (key === 'all' ? queue.length : queue.filter((s) => s.decision === key).length)
   const waiting = countWaiting(queue, reviews)
+  const referred = count('referred')
+  const estimate = performance.settings
+    .find((s) => s.key === config.setting.toLowerCase())
+    .stats.find((s) => s.key === 'reviewed').value
   const term = search.trim().toLowerCase()
   const rows = queue.filter(
     (s) => (filter === 'all' || s.decision === filter) && (!term || s.id.toLowerCase().includes(term)),
@@ -133,6 +138,10 @@ export default function Queue() {
       </div>
 
       <p className="muted small queue__foot">Decisions from the {config.setting} setting.</p>
+      <p className="muted small queue__foot-more">
+        {referred} of {queue.length} samples are referred by the final rule, fitted on all {queue.length} patients. For
+        new patients, the cross-validated estimate is {estimate}.
+      </p>
     </div>
   )
 }

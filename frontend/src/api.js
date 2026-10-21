@@ -2,7 +2,7 @@
 // backend can replace it without changing the components.
 import { config } from './data/config.js'
 import { samples, topTiles } from './data/samples.js'
-import { settings, alternatives, referral } from './data/performance.js'
+import { settings, alternatives, anyTile, referral } from './data/performance.js'
 
 export function decide(confidentTiles) {
   if (confidentTiles < config.clearBelow) return 'negative'
@@ -35,5 +35,5 @@ export async function getSample(id) {
 }
 
 export async function getPerformance() {
-  return { settings, alternatives, referral }
+  return { settings, alternatives, anyTile, referral }
 }

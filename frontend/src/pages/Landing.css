@@ -112,10 +112,15 @@
   padding: 112px 0;
 }
 
+.dark__eyebrow {
+  margin-top: 56px;
+  color: var(--muted);
+}
+
 .dark__stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  margin-top: 64px;
+  margin-top: 24px;
 }
 
 .dark__stat {
@@ -150,6 +155,21 @@
   max-width: 760px;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.6);
+}
+
+.dark__note--follow {
+  margin-top: 12px;
+}
+
+.dark__link {
+  color: var(--white);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dark__link:hover {
+  color: var(--referred-on-dark);
 }
 
 /* How it decides */
@@ -244,7 +264,7 @@
     padding: 80px 0;
   }
 
-  .dark__stats {
+  .dark__eyebrow {
     margin-top: 40px;
   }
 

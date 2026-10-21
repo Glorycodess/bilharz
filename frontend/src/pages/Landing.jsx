@@ -1,3 +1,6 @@
+import { Link } from 'react-router-dom'
+import { getPerformance } from '../api.js'
+import { useApi } from '../useApi.js'
 import Button from '../components/Button.jsx'
 import Footer from '../components/Footer.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
@@ -18,6 +21,8 @@ const STEPS = [
 ]
 
 export default function Landing() {
+  const performance = useApi(getPerformance)
+
   return (
     <>
       <section className="container hero">
@@ -82,26 +87,7 @@ export default function Landing() {
           <h2 className="headline h2" id="dark-title">
             Same detector. A different decision.
           </h2>
-          <div className="dark__stats">
-            <div className="dark__stat">
-              <p className="dark__value number dark__value--grey">0%</p>
-              <p className="dark__text">
-                Specificity when any confident tile flags the patient. Every healthy sample had a false alarm.
-              </p>
-            </div>
-            <div className="dark__stat">
-              <p className="dark__value number">96.7%</p>
-              <p className="dark__text">Specificity with Bilharz triage, catching 96.9% of infected patients.</p>
-            </div>
-            <div className="dark__stat">
-              <p className="dark__value number dark__value--referred">45.8%</p>
-              <p className="dark__text">Of samples reach a technician. The rest are decided automatically.</p>
-            </div>
-          </div>
-          <p className="dark__note">
-            Cross-validated on 65 patients from one dataset, every threshold learned on separate patients, referred
-            samples assumed read correctly. 95% intervals: sensitivity 83.8–99.9%, specificity 83.8–99.9%.
-          </p>
+          {performance && <DarkStats {...performance} />}
         </div>
       </section>
 
@@ -126,6 +112,53 @@ export default function Landing() {
       </section>
 
       <Footer />
+    </>
+  )
+}
+
+// The headline numbers: the Efficiency setting (main analysis), with a
+// pointer to Safety, which the app runs on.
+function DarkStats({ settings, anyTile }) {
+  const stat = (key, name) => settings.find((s) => s.key === key).stats.find((s) => s.key === name)
+  const caught = stat('efficiency', 'caught')
+  const cleared = stat('efficiency', 'cleared')
+  const reviewed = stat('efficiency', 'reviewed')
+  const safetyReviewed = stat('safety', 'reviewed')
+
+  return (
+    <>
+      <p className="eyebrow dark__eyebrow">Main analysis · Efficiency setting</p>
+      <div className="dark__stats">
+        <div className="dark__stat">
+          <p className="dark__value number dark__value--grey">{anyTile.cleared}</p>
+          <p className="dark__text">
+            Specificity when any tile scoring above {anyTile.threshold} flags the patient. Every healthy sample had a
+            false alarm.
+          </p>
+        </div>
+        <div className="dark__stat">
+          <p className="dark__value number">{cleared.value}</p>
+          <p className="dark__text">
+            Specificity with Bilharz triage, catching {caught.value} of infected patients.
+          </p>
+        </div>
+        <div className="dark__stat">
+          <p className="dark__value number dark__value--referred">{reviewed.value}</p>
+          <p className="dark__text">Of samples reach a technician. The rest are decided automatically.</p>
+        </div>
+      </div>
+      <p className="dark__note">
+        Cross-validated on 65 patients from one dataset, every threshold learned on separate patients, referred samples
+        assumed read correctly. 95% intervals: sensitivity {caught.interval}, specificity {cleared.interval}.
+      </p>
+      <p className="dark__note dark__note--follow">
+        The app runs on the Safety setting by default: in testing it missed no infected patients, with{' '}
+        {safetyReviewed.value} of samples reviewed.{' '}
+        <Link to="/performance" className="dark__link">
+          See Performance
+        </Link>
+        .
+      </p>
     </>
   )
 }

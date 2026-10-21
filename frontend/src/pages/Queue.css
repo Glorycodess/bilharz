@@ -134,6 +134,11 @@
   margin-top: 20px;
 }
 
+.queue__foot-more {
+  margin-top: 4px;
+  max-width: 720px;
+}
+
 @media (max-width: 720px) {
   .queue__controls {
     flex-direction: column-reverse;

@@ -42,7 +42,7 @@ export default function Performance() {
               key={stat.label}
               label={stat.label}
               value={stat.value}
-              note={stat.interval}
+              note={`95% interval ${stat.interval}`}
               signal={stat.signal}
               tone={stat.signal ? 'referred' : undefined}
             />
