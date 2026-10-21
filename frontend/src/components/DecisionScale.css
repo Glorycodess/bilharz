@@ -1,0 +1,75 @@
+.scale__marker-row {
+  position: relative;
+  height: 44px;
+}
+
+.scale__marker {
+  position: absolute;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+
+.scale__marker--start {
+  align-items: flex-start;
+  transform: translateX(-1px);
+}
+
+.scale__marker--end {
+  align-items: flex-end;
+  transform: translateX(calc(-100% + 1px));
+}
+
+.scale__marker-label {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.scale__marker-tick {
+  width: 2px;
+  height: 14px;
+  background: var(--ink);
+}
+
+.scale__bar {
+  display: flex;
+  gap: 4px;
+  height: 6px;
+}
+
+.scale__segment {
+  flex-basis: 0;
+  border-radius: 3px;
+}
+
+.scale__segment--negative {
+  background: var(--negative);
+}
+
+.scale__segment--referred {
+  background: var(--referred);
+}
+
+.scale__segment--positive {
+  background: var(--positive);
+}
+
+.scale__labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px 24px;
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--grey);
+}
+
+@media (max-width: 720px) {
+  .scale__labels {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

@@ -1,0 +1,40 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  border: 0;
+  white-space: nowrap;
+}
+
+.btn--primary {
+  background: var(--ink);
+  color: var(--white);
+  padding: 15px 24px;
+  border-radius: var(--radius);
+}
+
+.btn--primary:hover {
+  background: #2a2a2a;
+}
+
+.btn--primary:disabled {
+  background: var(--muted);
+  color: var(--white);
+  cursor: not-allowed;
+}
+
+.btn--link {
+  background: none;
+  padding: 0;
+  color: var(--ink);
+}
+
+.btn--link:hover {
+  color: var(--orange-text);
+}

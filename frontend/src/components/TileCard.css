@@ -1,0 +1,50 @@
+.tile-card {
+  min-width: 0;
+}
+
+.tile-card__image {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  background: var(--panel);
+  border-radius: var(--radius);
+}
+
+.tile-card__image--confident {
+  outline: 2px solid var(--orange);
+  outline-offset: -2px;
+}
+
+.tile-card__label {
+  font-size: 13px;
+  color: var(--grey);
+}
+
+.tile-card__rank {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tile-card__caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.tile-card__score {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile-card__name {
+  color: var(--grey);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

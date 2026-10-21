@@ -1,0 +1,36 @@
+.outcome {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.outcome--lg {
+  font-size: 18px;
+}
+
+.outcome__mark {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.outcome--lg .outcome__mark {
+  width: 14px;
+  height: 14px;
+}
+
+.outcome__mark--referred {
+  background: var(--referred);
+}
+
+.outcome__mark--positive {
+  background: var(--positive);
+}
+
+.outcome__mark--negative {
+  background: var(--negative);
+}

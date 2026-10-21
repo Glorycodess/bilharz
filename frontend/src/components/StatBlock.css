@@ -1,0 +1,29 @@
+.stat__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--grey);
+}
+
+.stat__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--referred);
+}
+
+.stat__value {
+  margin: 14px 0 10px;
+  font-size: clamp(40px, 4.4vw, 60px);
+}
+
+.stat__value--referred {
+  color: var(--referred);
+}
+
+.stat__note {
+  font-size: 14px;
+  color: var(--grey);
+}

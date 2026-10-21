@@ -1,0 +1,153 @@
+.queue__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 56px;
+}
+
+.queue__summary {
+  margin-top: 20px;
+}
+
+.queue__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 32px;
+  border-bottom: 1px solid var(--line);
+}
+
+.queue__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 28px;
+}
+
+.queue__tab {
+  padding: 14px 0 12px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--grey);
+  cursor: pointer;
+}
+
+.queue__tab:hover {
+  color: var(--ink);
+}
+
+.queue__tab[aria-pressed='true'] {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--ink);
+}
+
+.queue__tab-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.queue__search {
+  position: relative;
+  width: 260px;
+  margin-bottom: 10px;
+}
+
+.queue__search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: var(--grey);
+  pointer-events: none;
+}
+
+.queue__search-input {
+  padding: 10px 14px 10px 40px;
+}
+
+/* Table */
+
+.queue__table-wrap {
+  position: relative;
+  overflow-x: auto;
+}
+
+.queue__table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.queue__table th,
+.queue__table td {
+  padding: 16px 16px 16px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.queue__table thead th {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--grey);
+  padding-top: 20px;
+  padding-bottom: 12px;
+}
+
+.queue__table tbody th {
+  font-weight: 600;
+}
+
+.queue__table .num {
+  text-align: right;
+  padding-right: 48px;
+  font-variant-numeric: tabular-nums;
+}
+
+.queue__id {
+  text-decoration: none;
+}
+
+.queue__id:hover {
+  color: var(--orange-text);
+}
+
+.queue__action {
+  text-align: right !important;
+  padding-right: 0 !important;
+}
+
+.queue__empty {
+  color: var(--grey);
+  white-space: normal !important;
+}
+
+.queue__foot {
+  margin-top: 20px;
+}
+
+@media (max-width: 720px) {
+  .queue__controls {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    border-bottom: 0;
+  }
+
+  .queue__search {
+    width: 100%;
+    margin: 0;
+  }
+
+  .queue__tabs {
+    gap: 0 20px;
+    border-bottom: 1px solid var(--line);
+  }
+}

@@ -1,0 +1,16 @@
+.tile-grid {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.tile-grid__cell {
+  aspect-ratio: 1;
+  background: var(--tile);
+  border-radius: 1px;
+}
+
+.tile-grid__cell--on {
+  background: var(--orange);
+}

@@ -1,0 +1,270 @@
+/* Hero */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  align-items: center;
+  gap: 64px;
+  padding-top: 96px;
+  padding-bottom: 112px;
+}
+
+.hero__title {
+  margin: 20px 0 28px;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px 32px;
+  margin-top: 40px;
+}
+
+.hero__figure {
+  justify-self: end;
+  width: 100%;
+  max-width: 420px;
+}
+
+.hero__caption {
+  margin-top: 20px;
+  font-size: 14px;
+  color: var(--grey);
+}
+
+/* Three outcomes */
+
+.outcomes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.outcomes__item {
+  padding: 40px 32px;
+}
+
+.outcomes__item:first-child {
+  padding-left: 0;
+}
+
+.outcomes__item + .outcomes__item {
+  border-left: 1px solid var(--line);
+}
+
+.outcomes__title {
+  margin: 20px 0 6px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* The problem */
+
+.problem {
+  padding-top: 120px;
+  padding-bottom: 120px;
+}
+
+.problem__body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 32px 64px;
+  margin-top: 24px;
+}
+
+.problem__number {
+  font-size: clamp(96px, 15vw, 210px);
+}
+
+.problem__pct {
+  color: var(--orange);
+}
+
+.problem__text {
+  max-width: 520px;
+  padding-bottom: 12px;
+}
+
+.problem__lead {
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: 16px;
+}
+
+.problem__source {
+  margin-top: 20px;
+  font-size: 14px;
+  color: var(--grey);
+}
+
+/* Dark band */
+
+.dark {
+  background: var(--ink);
+  color: var(--white);
+  padding: 112px 0;
+}
+
+.dark__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 64px;
+}
+
+.dark__stat {
+  padding: 8px 32px 8px 0;
+}
+
+.dark__stat + .dark__stat {
+  padding-left: 32px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark__value {
+  font-size: clamp(56px, 6vw, 88px);
+  margin-bottom: 20px;
+}
+
+.dark__value--grey {
+  color: var(--grey);
+}
+
+.dark__value--referred {
+  color: var(--referred-on-dark);
+}
+
+.dark__text {
+  color: var(--muted);
+  max-width: 320px;
+}
+
+.dark__note {
+  margin-top: 64px;
+  max-width: 760px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* How it decides */
+
+.how {
+  padding-top: 120px;
+  padding-bottom: 120px;
+}
+
+.how__steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 40px 32px;
+  margin-top: 56px;
+}
+
+.how__step {
+  border-top: 1px solid var(--ink);
+  padding-top: 20px;
+}
+
+.how__num {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--orange-text);
+}
+
+.how__title {
+  margin: 12px 0 8px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+/* Closing */
+
+.closing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px 40px;
+  padding-top: 72px;
+  padding-bottom: 96px;
+  border-top: 1px solid var(--line);
+}
+
+.closing__title {
+  font-size: clamp(30px, 3.4vw, 44px);
+}
+
+/* Responsive, to the width beside the sidebar rather than the window */
+
+@container content (max-width: 1000px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 56px;
+    padding-top: 64px;
+    padding-bottom: 80px;
+  }
+
+  .hero__figure {
+    justify-self: start;
+  }
+
+  .how__steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .problem__body {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container content (max-width: 720px) {
+  .outcomes,
+  .dark__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .outcomes__item {
+    padding: 32px 0;
+  }
+
+  .outcomes__item + .outcomes__item {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .dark {
+    padding: 80px 0;
+  }
+
+  .dark__stats {
+    margin-top: 40px;
+  }
+
+  .dark__stat,
+  .dark__stat + .dark__stat {
+    padding: 28px 0;
+    border-left: 0;
+  }
+
+  .dark__stat + .dark__stat {
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .problem,
+  .how {
+    padding-top: 80px;
+    padding-bottom: 80px;
+  }
+
+  .how__steps {
+    grid-template-columns: 1fr;
+  }
+}
