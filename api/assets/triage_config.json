@@ -1,0 +1,29 @@
+{
+  "description": "Bilharz triage rule fitted on all 65 patients (notebook 05). A tile is confident if its detector score exceeds tile_threshold; a sample is negative if its confident-tile count is below clear_below, positive if above flag_above, otherwise referred.",
+  "default": "safety",
+  "settings": {
+    "efficiency": {
+      "tile_threshold": 0.99,
+      "clear_below": 1,
+      "flag_above": 12
+    },
+    "safety": {
+      "tile_threshold": 0.95,
+      "clear_below": 1,
+      "flag_above": 35
+    }
+  },
+  "model": {
+    "file": "detector.onnx",
+    "input": "float32 (N, 3, 256, 256), values 0\u20131",
+    "image_resize": [
+      1024,
+      768
+    ],
+    "grid": [
+      3,
+      4
+    ],
+    "tile_px": 256
+  }
+}
