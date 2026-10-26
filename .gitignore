@@ -7,3 +7,8 @@ __pycache__/
 api/assets/*.onnx
 api/assets/*.pt
 api/assets/tiles.zip
+
+# API: local virtual environment, test cache and the reviews database
+.venv/
+.pytest_cache/
+api/data/
