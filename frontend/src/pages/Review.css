@@ -26,7 +26,7 @@
 
 .decision {
   position: sticky;
-  top: 24px;
+  top: calc(var(--header-height) + 24px);
   border: 1px solid var(--line);
   border-radius: var(--radius-panel);
   padding: 28px;

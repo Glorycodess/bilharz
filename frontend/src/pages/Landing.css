@@ -11,6 +11,7 @@
 
 .hero__title {
   margin: 20px 0 28px;
+  font-size: clamp(48px, 5.6vw, 80px);
 }
 
 .hero__actions {
@@ -222,7 +223,7 @@
   font-size: clamp(30px, 3.4vw, 44px);
 }
 
-/* Responsive, to the width beside the sidebar rather than the window */
+/* Responsive, to the content width */
 
 @container content (max-width: 1000px) {
   .hero {

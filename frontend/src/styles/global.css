@@ -22,6 +22,7 @@
   --gutter: 40px;
   --radius: 10px;
   --radius-panel: 16px;
+  --header-height: 64px;
 }
 
 @media (max-width: 720px) {
@@ -38,6 +39,7 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  scroll-padding-top: var(--header-height);
 }
 
 body {
