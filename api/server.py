@@ -1,4 +1,8 @@
-"""The Bilharz API. Run locally with `uvicorn server:app --port 8000`."""
+"""The Bilharz API. Run locally with `uvicorn server:app --port 8000`.
+
+`create_app` builds the app; `server.app` is the default one, built on first
+use, so importing this module (tests, the Space entry point) has no side effects.
+"""
 import asyncio
 import logging
 
@@ -96,4 +100,15 @@ def create_app(settings: Settings | None = None, scorer: Scorer | None = None) -
     return app
 
 
-app = create_app()
+_default_app: FastAPI | None = None
+
+
+def __getattr__(name: str):
+    # `uvicorn server:app` and `from server import app` get the default app,
+    # built from the environment the first time it is asked for.
+    if name == "app":
+        global _default_app
+        if _default_app is None:
+            _default_app = create_app()
+        return _default_app
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

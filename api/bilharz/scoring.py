@@ -1,8 +1,9 @@
 """Tile scorers: uint8 tiles (N, 256, 256, 3) → egg probabilities (N,).
 
 Scorers are tried in order of preference and the first available one is used.
-For the GPU deployment, a TorchGpuScorer (detector.pt on CUDA) goes at the
-front of SCORERS; ONNX on the CPU stays as the fallback.
+The Hugging Face Space passes its own TorchGpuScorer (detector.pt on ZeroGPU,
+see deploy/space/app.py) to create_app, with ONNX on the CPU as its fallback.
+A scorer may set `whole_sample = True` to be called once per upload.
 """
 from typing import ClassVar, Protocol
 

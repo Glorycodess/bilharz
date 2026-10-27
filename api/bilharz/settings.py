@@ -40,6 +40,9 @@ class Settings:
     admin_token: str | None = field(default=None, repr=False)
     # Optional: when set, every review endpoint requires it in X-Review-Code.
     review_code: str | None = field(default=None, repr=False)
+    # Whether reviews_db survives a restart (true on a normal disk; false on
+    # hosts with ephemeral storage). Reported by /api/health.
+    reviews_persistent: bool = True
 
 
 def load_settings() -> Settings:
@@ -61,4 +64,5 @@ def load_settings() -> Settings:
         upload_timeout_seconds=float(os.environ.get("BILHARZ_UPLOAD_TIMEOUT_SECONDS") or 120),
         admin_token=os.environ.get("BILHARZ_ADMIN_TOKEN") or None,
         review_code=os.environ.get("BILHARZ_REVIEW_CODE") or None,
+        reviews_persistent=os.environ.get("BILHARZ_REVIEWS_PERSISTENT", "true").lower() in ("1", "true", "yes"),
     )

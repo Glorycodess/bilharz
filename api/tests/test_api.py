@@ -19,7 +19,12 @@ def all_keys(value):
 
 
 def test_health(client):
-    assert client.get("/api/health").json() == {"status": "ok", "scorer": "onnx-cpu", "samples": 65}
+    assert client.get("/api/health").json() == {
+        "status": "ok",
+        "scorer": "onnx-cpu",
+        "samples": 65,
+        "reviews_persistent": True,
+    }
 
 
 def test_config(client):

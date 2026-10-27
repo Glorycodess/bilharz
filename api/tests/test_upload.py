@@ -4,6 +4,7 @@ import io
 import json
 import re
 
+import numpy as np
 import pytest
 from PIL import Image
 
@@ -233,3 +234,31 @@ def test_lock_released_after_scoring_error(make_client, monkeypatch):
         assert not c.app.state.analysis_lock.locked()
         monkeypatch.setattr(c.app.state, "scorer", working)
         assert c.post("/api/analyse", files=as_files([jpeg()] * 3)).status_code == 200
+
+
+def test_whole_sample_scorer_is_called_once(make_client, monkeypatch):
+    """A GPU scorer reserves a GPU per call, so it gets every tile in one call."""
+    calls = []
+
+    class WholeSample:
+        name = "stub"
+        whole_sample = True
+
+        def score(self, tiles):
+            calls.append(len(tiles))
+            return np.zeros(len(tiles), dtype=np.float32)
+
+    with make_client(expected_files=20) as c:
+        monkeypatch.setattr(c.app.state, "scorer", WholeSample())
+        r = c.post("/api/analyse", files=as_files([jpeg()] * 20))
+        assert r.status_code == 200, r.text
+    assert calls == [20 * 12]
+
+
+def test_importing_server_builds_no_app():
+    import importlib
+
+    import server
+
+    importlib.reload(server)
+    assert server._default_app is None

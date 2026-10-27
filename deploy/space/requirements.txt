@@ -1,0 +1,19 @@
+# Hugging Face Space (Gradio SDK on ZeroGPU), Python 3.12.
+# Versions follow the ZeroGPU docs (torch 2.8.0 to 2.13.0 listed as supported,
+# Gradio 4+) and must match sdk_version in README.md.
+gradio==6.30.0
+spaces==0.51.3
+torch==2.13.0
+torchvision==0.28.0
+# Backend: as api/requirements.txt, except where Gradio limits the version.
+# The Space installs gradio[oauth,mcp]==6.30.0, which requires pillow<13 and
+# (through the mcp extra) pydantic>=2.11.10,<=2.12.5. pydantic-core is left
+# to pip; pydantic 2.12.5 pins it to 2.41.5.
+fastapi==0.162.0
+starlette==1.10.0
+uvicorn==0.54.0
+pydantic==2.12.5
+python-multipart==0.0.32
+numpy==2.5.4
+pillow==12.3.0
+onnxruntime==1.31.0

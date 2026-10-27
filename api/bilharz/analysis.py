@@ -40,10 +40,13 @@ def analyse(uploads: list[Upload], scorer: Scorer, rule: Rule) -> dict:
     again just the images that hold the top tiles, for their previews."""
     start = time.perf_counter()
     numbered = list(enumerate(uploads, 1))
+    # A scorer with `whole_sample` (the GPU one) gets every tile in one call,
+    # since each call reserves a GPU; the CPU scorer works through groups.
+    group = len(numbered) if getattr(scorer, "whole_sample", False) else IMAGES_PER_BATCH
     scores = []
     with ThreadPoolExecutor(max_workers=4) as pool:
-        for i in range(0, len(numbered), IMAGES_PER_BATCH):
-            tiles = np.concatenate(list(pool.map(_decode, numbered[i : i + IMAGES_PER_BATCH])))
+        for i in range(0, len(numbered), group):
+            tiles = np.concatenate(list(pool.map(_decode, numbered[i : i + group])))
             scores.append(scorer.score(tiles))
     scores = np.concatenate(scores)
 

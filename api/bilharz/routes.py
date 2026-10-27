@@ -72,7 +72,12 @@ def _known(request: Request, sample_id: str) -> None:
 @router.get("/health", response_model=schemas.Health)
 def health(request: Request):
     state = _state(request)
-    return dict(status="ok", scorer=state.scorer.name, samples=len(state.samples))
+    return dict(
+        status="ok",
+        scorer=state.scorer.name,
+        samples=len(state.samples),
+        reviews_persistent=state.settings.reviews_persistent,
+    )
 
 
 @router.get("/config", response_model=schemas.ConfigOut)
