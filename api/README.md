@@ -49,9 +49,15 @@ All under `/api`, JSON, snake_case. `setting` is `safety` (the default) or
 | GET | `/api/samples/{id}?setting=` | One sample's result, with its top 12 tiles; 404 if unknown |
 | GET | `/api/tiles/{id}/{rank}.jpg` | A top tile (rank 1–12) from `tiles.zip`; 404 otherwise |
 | POST | `/api/analyse?setting=` | Analyse one uploaded sample (multipart field `files`, 117 JPEGs) |
-| POST | `/api/reviews/{id}` | Save a review: `verdict` (`infected`/`healthy`), optional `note` (≤ 500 chars) and `tester_code` (`T1`–`T999`) |
-| GET | `/api/reviews` | All reviews |
+| POST | `/api/reviews/{id}` | Save a review: `verdict` (`infected`/`healthy`), optional `note` (≤ 500 chars), `tester_code` (`T1`–`T999`) and `supersedes` (to amend the current review) |
+| GET | `/api/reviews?view=current\|all` | One row per sample (its current review), or every version |
+| GET | `/api/reviews.csv` | Every version as CSV; needs header `X-Admin-Token` |
 | DELETE | `/api/reviews` | Delete all reviews; needs header `X-Admin-Token` |
+
+If `BILHARZ_REVIEW_CODE` is set, the review endpoints (POST and GET
+`/api/reviews…`) also need it in the `X-Review-Code` header; `/api/config`
+reports `review_code_required` but never the code. The queue and sample results
+stay public.
 
 The ground-truth labels in `patient_scores.npz` are never loaded, so no response
 can reveal a diagnosis.
@@ -89,7 +95,8 @@ logged.
 | `BILHARZ_MAX_IMAGE_SIDE` | `6000` | Largest image width or height, in pixels |
 | `BILHARZ_BATCH_SIZE` | `64` | Tiles per detector batch |
 | `BILHARZ_UPLOAD_TIMEOUT_SECONDS` | `120` | Time allowed for an upload's body to arrive |
-| `BILHARZ_ADMIN_TOKEN` | unset | Enables `DELETE /api/reviews`; unset means disabled |
+| `BILHARZ_ADMIN_TOKEN` | unset | Enables `DELETE /api/reviews` and `GET /api/reviews.csv`; unset means both are disabled |
+| `BILHARZ_REVIEW_CODE` | unset | If set, review endpoints need it in `X-Review-Code` |
 
 ## Privacy
 

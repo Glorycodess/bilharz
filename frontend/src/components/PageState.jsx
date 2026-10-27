@@ -23,7 +23,9 @@ export default function PageState({ error, retry, retrying }) {
       <div className="page-state__error" role="alert">
         <p className="page-state__message">{error.message}</p>
         {retrying && <p className="muted small">Trying again automatically in a few seconds.</p>}
-        <Button onClick={retry}>Try again</Button>
+        <Button variant="outline" onClick={retry}>
+          Try again
+        </Button>
       </div>
     </div>
   )

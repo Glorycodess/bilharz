@@ -1,12 +1,16 @@
 .reviews__empty {
-  padding: 32px 0;
+  padding: 24px 0;
   border-top: 1px solid var(--line);
   font-size: 18px;
   color: var(--grey);
 }
 
 .reviews__table {
-  min-width: 920px;
+  min-width: 760px;
+}
+
+.reviews__table--wide {
+  min-width: 900px;
 }
 
 .reviews__note-cell {
@@ -34,14 +38,15 @@
 }
 
 .reviews__notice {
-  margin: -24px 0 28px;
+  margin: -8px 0 16px;
   font-weight: 600;
   color: var(--negative);
 }
 
+/* "{n} versions": a small grey label beside the sample ID, so rows stay one line. */
 .reviews__versions {
-  display: block;
-  margin-top: 2px;
+  display: inline;
+  margin-left: 10px;
   padding: 0;
   border: 0;
   background: none;
@@ -49,6 +54,7 @@
   font-weight: 500;
   color: var(--grey);
   text-decoration: underline;
+  text-decoration-color: var(--muted);
   text-underline-offset: 3px;
   cursor: pointer;
 }

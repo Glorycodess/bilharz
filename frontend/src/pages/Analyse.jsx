@@ -4,6 +4,7 @@ import { EXPECTED_IMAGES, TILES_PER_IMAGE, analyseUpload, getConfig, getQueue } 
 import { pending, useApi } from '../useApi.js'
 import { formatCount } from '../format.js'
 import Button from '../components/Button.jsx'
+import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
 import { CheckIcon, UploadIcon } from '../components/Icons.jsx'
 import './Analyse.css'
@@ -113,13 +114,10 @@ export default function Analyse() {
 
   return (
     <div className="container page">
-      <header className="analyse__head">
-        <h1 className="headline h1">Analyse a sample</h1>
-        <p className="lead">
-          Add the {EXPECTED_IMAGES} microscope images of one urine sample. Bilharz scores every tile and returns one
-          decision.
-        </p>
-      </header>
+      <PageHeader
+        title="Analyse a sample"
+        summary={`Add the ${EXPECTED_IMAGES} microscope images of one urine sample. Bilharz scores every tile and returns one decision.`}
+      />
 
       <div className="analyse">
         <div className="analyse__inputs">
@@ -159,7 +157,7 @@ export default function Analyse() {
                   </Button>
                 </>
               ) : (
-                <Button onClick={() => folderInput.current?.click()} disabled={busy}>
+                <Button variant="outline" onClick={() => folderInput.current?.click()} disabled={busy}>
                   Choose folder
                 </Button>
               )}

@@ -90,7 +90,7 @@ def create_app(settings: Settings | None = None, scorer: Scorer | None = None) -
         CORSMiddleware,
         allow_origins=list(settings.allowed_origins),
         allow_methods=["GET", "POST", "DELETE"],
-        allow_headers=["Content-Type", "X-Admin-Token"],
+        allow_headers=["Content-Type", "X-Admin-Token", "X-Review-Code"],
     )
     app.add_middleware(SecurityHeaders)
     return app

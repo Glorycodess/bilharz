@@ -1,38 +1,19 @@
-.queue__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 32px;
-  margin-bottom: 56px;
-}
-
-.queue__summary {
-  margin-top: 20px;
-}
-
-.queue__controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px 32px;
-  border-bottom: 1px solid var(--line);
-}
+/* Shared by the Queue and Reviews pages: filter tabs, search and a dense table. */
 
 .queue__tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 28px;
+  gap: 0 24px;
 }
 
 .queue__tab {
-  padding: 14px 0 12px;
+  height: 40px;
+  padding: 0;
   margin-bottom: -1px;
   border: 0;
   border-bottom: 2px solid transparent;
   background: none;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--grey);
   cursor: pointer;
@@ -54,13 +35,12 @@
 
 .queue__search {
   position: relative;
-  width: 260px;
-  margin-bottom: 10px;
+  width: 240px;
 }
 
 .queue__search-icon {
   position: absolute;
-  left: 14px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
   font-size: 18px;
@@ -69,10 +49,12 @@
 }
 
 .queue__search-input {
-  padding: 10px 14px 10px 40px;
+  height: 40px;
+  padding: 0 12px 0 38px;
+  font-size: 15px;
 }
 
-/* Table */
+/* Table: rows about 56px high, numbers right-aligned and tabular. */
 
 .queue__table-wrap {
   position: relative;
@@ -88,18 +70,20 @@
 
 .queue__table th,
 .queue__table td {
-  padding: 16px 16px 16px 0;
+  height: 56px;
+  padding: 13px 16px 13px 0;
   border-bottom: 1px solid var(--line);
   text-align: left;
   white-space: nowrap;
 }
 
 .queue__table thead th {
-  font-size: 14px;
+  height: auto;
+  padding-top: 16px;
+  padding-bottom: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--grey);
-  padding-top: 20px;
-  padding-bottom: 12px;
 }
 
 .queue__table tbody th {
@@ -108,8 +92,12 @@
 
 .queue__table .num {
   text-align: right;
-  padding-right: 48px;
+  padding-right: 40px;
   font-variant-numeric: tabular-nums;
+}
+
+.queue__table tbody tr:hover {
+  background: #fafafa;
 }
 
 .queue__id {
@@ -120,9 +108,24 @@
   color: var(--orange-text);
 }
 
+/* Row actions: quiet until the row is hovered or the link focused, but always visible. */
 .queue__action {
   text-align: right !important;
   padding-right: 0 !important;
+}
+
+.row-action {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--grey);
+  text-decoration: none;
+}
+
+tr:hover .row-action,
+tr:focus-within .row-action,
+.row-action:hover,
+.row-action:focus-visible {
+  color: var(--ink);
 }
 
 .queue__empty {
@@ -140,19 +143,7 @@
 }
 
 @media (max-width: 720px) {
-  .queue__controls {
-    flex-direction: column-reverse;
-    align-items: stretch;
-    border-bottom: 0;
-  }
-
   .queue__search {
     width: 100%;
-    margin: 0;
-  }
-
-  .queue__tabs {
-    gap: 0 20px;
-    border-bottom: 1px solid var(--line);
   }
 }

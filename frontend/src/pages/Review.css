@@ -1,8 +1,6 @@
-.review__head {
-  display: grid;
-  justify-items: start;
-  gap: 20px;
-  margin-bottom: 56px;
+.review__intro {
+  margin-top: 8px;
+  max-width: 680px;
 }
 
 .review {
@@ -94,6 +92,10 @@
 .decision__note {
   resize: vertical;
   min-height: 84px;
+}
+
+.decision__hint {
+  margin-top: 6px;
 }
 
 .decision__submit {

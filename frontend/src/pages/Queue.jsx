@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { countWaiting, getConfig, getPerformance, getQueue, isReviewed, isWaiting } from '../api.js'
 import { pending, useApi } from '../useApi.js'
 import OutcomeMark from '../components/OutcomeMark.jsx'
+import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
+import Toolbar from '../components/Toolbar.jsx'
 import VerdictMark from '../components/VerdictMark.jsx'
 import { SearchIcon } from '../components/Icons.jsx'
 import './Queue.css'
@@ -42,47 +44,48 @@ export default function Queue() {
 
   return (
     <div className="container page">
-      <header className="queue__head">
-        <div>
-          <h1 className="headline h1">Queue</h1>
-          <p className="lead queue__summary">
-            {queue.length} samples analysed.{' '}
-            <span className="strong">
-              {waiting} waiting for a technician.
-            </span>
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        title="Queue"
+        summary={
+          <>
+            {queue.length} samples · <strong>{waiting} waiting for a technician</strong>
+          </>
+        }
+      />
 
-      <div className="queue__controls">
-        <div className="queue__tabs" role="group" aria-label="Filter by decision">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              className="queue__tab"
-              aria-pressed={filter === f.key}
-              onClick={() => setFilter(f.key)}
-            >
-              {f.label} <span className="queue__tab-count">{count(f.key)}</span>
-            </button>
-          ))}
-        </div>
-        <div className="queue__search">
-          <label className="visually-hidden" htmlFor="queue-search">
-            Find a sample
-          </label>
-          <SearchIcon className="queue__search-icon" />
-          <input
-            id="queue-search"
-            className="input queue__search-input"
-            type="search"
-            placeholder="Find a sample"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-      </div>
+      <Toolbar
+        start={
+          <div className="queue__tabs" role="group" aria-label="Filter by decision">
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className="queue__tab"
+                aria-pressed={filter === f.key}
+                onClick={() => setFilter(f.key)}
+              >
+                {f.label} <span className="queue__tab-count">{count(f.key)}</span>
+              </button>
+            ))}
+          </div>
+        }
+        end={
+          <div className="queue__search">
+            <label className="visually-hidden" htmlFor="queue-search">
+              Find a sample
+            </label>
+            <SearchIcon className="queue__search-icon" />
+            <input
+              id="queue-search"
+              className="input queue__search-input"
+              type="search"
+              placeholder="Find a sample"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        }
+      />
 
       <div className="queue__table-wrap" tabIndex={0} role="region" aria-label="Samples">
         <table className="queue__table">
@@ -125,7 +128,7 @@ export default function Queue() {
                   </td>
                   <td className={!isReviewed(s) && !referred ? 'muted' : undefined}>{status}</td>
                   <td className="queue__action">
-                    <Link to={to} className="text-link" aria-label={`${referred ? 'Review' : 'View'} ${s.id}`}>
+                    <Link to={to} className="row-action" aria-label={`${referred ? 'Review' : 'View'} ${s.id}`}>
                       {referred ? 'Review' : 'View'} <span aria-hidden="true">→</span>
                     </Link>
                   </td>

@@ -1,0 +1,51 @@
+.page-header {
+  padding: 32px 0 24px;
+}
+
+.page-header .breadcrumb {
+  margin-bottom: 12px;
+}
+
+.page-header__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 32px;
+}
+
+.page-header__text {
+  min-width: 0;
+  max-width: 880px;
+}
+
+.page-header__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(32px, 3vw, 40px);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.page-header__title .soft {
+  color: var(--grey);
+}
+
+.page-header__summary {
+  margin-top: 8px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--grey);
+}
+
+.page-header__summary strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}

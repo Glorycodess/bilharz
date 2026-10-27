@@ -1,8 +1,10 @@
 // Checks a running backend against the fields the frontend relies on (the
 // ones src/api.js reads). Run with `npm run check:api`; set BILHARZ_API_URL to
-// check a backend other than http://localhost:8000.
+// check a backend other than http://localhost:8000. If the backend requires a
+// review code, set BILHARZ_REVIEW_CODE too, or the review endpoints are skipped.
 
 const BASE = (process.env.BILHARZ_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+const REVIEW_CODE = process.env.BILHARZ_REVIEW_CODE || null
 
 const DECISION = { oneOf: ['negative', 'positive', 'referred'] }
 const VERDICT = { oneOf: ['infected', 'healthy'] }
@@ -27,7 +29,7 @@ const REVIEW_ITEM = {
 const CHECKS = [
   {
     path: '/api/config',
-    shape: object({ default: 'string', settings: { values: RULE } }),
+    shape: object({ default: 'string', settings: { values: RULE }, review_code_required: 'boolean' }),
   },
   {
     path: '/api/samples',
@@ -60,13 +62,14 @@ const CHECKS = [
           created_at: 'string',
           note: nullable('string'),
           tester_code: nullable('string'),
+          details_hidden: 'boolean',
         }),
       ),
       review_count: 'number',
     }),
   },
-  { path: '/api/reviews?view=current', shape: array(REVIEW_ITEM) },
-  { path: '/api/reviews?view=all', shape: array(REVIEW_ITEM) },
+  { path: '/api/reviews?view=current', shape: array(REVIEW_ITEM), review: true },
+  { path: '/api/reviews?view=all', shape: array(REVIEW_ITEM), review: true },
 ]
 
 function describe(value) {
@@ -114,10 +117,16 @@ function summarise(problems) {
 let failed = false
 console.log(`Checking ${BASE} against the fields the frontend uses\n`)
 
-for (const { path, shape } of CHECKS) {
+for (const { path, shape, review } of CHECKS) {
   let body
   try {
-    const res = await fetch(BASE + path, { headers: { Accept: 'application/json' } })
+    const headers = { Accept: 'application/json' }
+    if (review && REVIEW_CODE) headers['X-Review-Code'] = REVIEW_CODE
+    const res = await fetch(BASE + path, { headers })
+    if (review && res.status === 403 && !REVIEW_CODE) {
+      console.log(`– ${path}  skipped: the backend requires a review code (set BILHARZ_REVIEW_CODE to check it)`)
+      continue
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     body = await res.json()
   } catch (error) {

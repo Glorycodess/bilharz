@@ -38,6 +38,8 @@ class Settings:
     upload_timeout_seconds: float = 120.0
     # Read from the environment only; kept out of repr so it never reaches a log.
     admin_token: str | None = field(default=None, repr=False)
+    # Optional: when set, every review endpoint requires it in X-Review-Code.
+    review_code: str | None = field(default=None, repr=False)
 
 
 def load_settings() -> Settings:
@@ -58,4 +60,5 @@ def load_settings() -> Settings:
         batch_size=_int("BILHARZ_BATCH_SIZE", 64),
         upload_timeout_seconds=float(os.environ.get("BILHARZ_UPLOAD_TIMEOUT_SECONDS") or 120),
         admin_token=os.environ.get("BILHARZ_ADMIN_TOKEN") or None,
+        review_code=os.environ.get("BILHARZ_REVIEW_CODE") or None,
     )

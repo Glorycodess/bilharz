@@ -99,9 +99,10 @@ svg {
   padding: 0 var(--gutter);
 }
 
+/* App pages: PageHeader provides the space at the top. */
 .page {
-  padding-top: 72px;
-  padding-bottom: 128px;
+  padding-top: 0;
+  padding-bottom: 96px;
 }
 
 .section {

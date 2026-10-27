@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { getConfig, getPerformance } from '../api.js'
 import { pending, useApi } from '../useApi.js'
 import { ruleText } from '../format.js'
+import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
 import StatBlock from '../components/StatBlock.jsx'
 import './Performance.css'
@@ -20,10 +21,10 @@ export default function Performance() {
 
   return (
     <div className="container page">
-      <header className="perf__head">
-        <h1 className="headline h1">How well it works</h1>
-        <p className="lead">Two settings trade review workload against safety. Choose one to see what it means.</p>
-      </header>
+      <PageHeader
+        title="How well it works"
+        summary="Two settings trade review workload against safety. Choose one to see what it means."
+      />
 
       <div className="segmented" role="group" aria-label="Decision setting">
         {settings.map((s) => (

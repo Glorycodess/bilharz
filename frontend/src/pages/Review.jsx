@@ -6,7 +6,9 @@ import { confidentTiles, formatCount, formatTime } from '../format.js'
 import Button from '../components/Button.jsx'
 import EggGuide from '../components/EggGuide.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
+import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
+import ReviewCodeGate from '../components/ReviewCodeGate.jsx'
 import TileCard from '../components/TileCard.jsx'
 import SampleNotFound from './SampleNotFound.jsx'
 import './Review.css'
@@ -42,7 +44,8 @@ function ReviewSample({ id, editing }) {
   const current = sample.data?.review ?? null
   const amending = editing && current !== null
   // Load the current review into the form, and again if it changes (after a 409).
-  if (amending && prefilledFrom !== current.id) {
+  // Wait while its note is hidden (no review code yet), or saving would erase it.
+  if (amending && !current.detailsHidden && prefilledFrom !== current.id) {
     setPrefilledFrom(current.id)
     setChoice(current.verdict)
     setNote(current.note ?? '')
@@ -86,24 +89,29 @@ function ReviewSample({ id, editing }) {
 
   return (
     <div className="container page">
-      <nav className="breadcrumb" aria-label="Breadcrumb">
-        {amending ? <Link to="/reviews">Reviews</Link> : <Link to="/queue">Queue</Link>}
-        <span aria-hidden="true">/</span>
-        <Link to={`/samples/${id}`}>{id}</Link>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">{amending ? 'Edit review' : 'Review'}</span>
-      </nav>
-
-      <header className="review__head">
-        <h1 className="headline h1">Review {id}</h1>
-        <OutcomeMark kind={decision} size="lg">
-          {WORDS[decision]} · {confidentTiles(n)}
-        </OutcomeMark>
-        <p className="lead">
-          The 12 tiles the detector ranked highest, out of {formatCount(tilesScored)}. Look for
-          an oval egg with a spine at one end. Debris and fibres are the usual false alarms.
-        </p>
-      </header>
+      <PageHeader
+        breadcrumb={
+          <nav className="breadcrumb" aria-label="Breadcrumb">
+            {amending ? <Link to="/reviews">Reviews</Link> : <Link to="/queue">Queue</Link>}
+            <span aria-hidden="true">/</span>
+            <Link to={`/samples/${id}`}>{id}</Link>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">{amending ? 'Edit review' : 'Review'}</span>
+          </nav>
+        }
+        title={amending ? `Edit review of ${id}` : `Review ${id}`}
+        summary={
+          <>
+            <OutcomeMark kind={decision}>
+              {WORDS[decision]} · {confidentTiles(n)}
+            </OutcomeMark>
+            <p className="review__intro">
+              The 12 tiles the detector ranked highest, out of {formatCount(tilesScored)}. Look for an oval egg with a
+              spine at one end. Debris and fibres are the usual false alarms.
+            </p>
+          </>
+        }
+      />
 
       <div className="review">
         <section aria-label="Top 12 tiles">
@@ -117,86 +125,92 @@ function ReviewSample({ id, editing }) {
 
         <div className="review__side">
           <EggGuide />
-          <aside className="decision" aria-labelledby="decision-title">
-            <form onSubmit={onSubmit}>
-              <h2 className="section-title" id="decision-title">
-                Your decision
-              </h2>
-              <div className="decision__choices" role="group" aria-labelledby="decision-title">
-                {CHOICES.map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    className={`decision__choice decision__choice--${c.outcome}`}
-                    aria-pressed={choice === c.value}
-                    onClick={() => setChoice(c.value)}
-                    disabled={busy}
-                  >
-                    <span className="decision__choice-label">{c.label}</span>
-                    <span className="decision__choice-hint">{c.hint}</span>
-                  </button>
-                ))}
-              </div>
+          <ReviewCodeGate>
+            <aside className="decision" aria-labelledby="decision-title">
+              <form onSubmit={onSubmit}>
+                <h2 className="section-title" id="decision-title">
+                  Your decision
+                </h2>
+                <div className="decision__choices" role="group" aria-labelledby="decision-title">
+                  {CHOICES.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      className={`decision__choice decision__choice--${c.outcome}`}
+                      aria-pressed={choice === c.value}
+                      onClick={() => setChoice(c.value)}
+                      disabled={busy}
+                    >
+                      <span className="decision__choice-label">{c.label}</span>
+                      <span className="decision__choice-hint">{c.hint}</span>
+                    </button>
+                  ))}
+                </div>
 
-              <label className="field-label" htmlFor="review-note">
-                Note <span className="muted">(optional)</span>
-              </label>
-              <textarea
-                id="review-note"
-                className="input decision__note"
-                rows={3}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                maxLength={500}
-                disabled={busy}
-              />
-
-              {amending && (
-                <p className="decision__editing muted small">
-                  Editing the review from {formatTime(current.createdAt)}. It stays in the history as an earlier
-                  version.
+                <label className="field-label" htmlFor="review-note">
+                  Note <span className="muted">(optional)</span>
+                </label>
+                <textarea
+                  id="review-note"
+                  className="input decision__note"
+                  rows={3}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  maxLength={500}
+                  disabled={busy}
+                  aria-describedby="review-note-hint"
+                />
+                <p className="decision__hint muted small" id="review-note-hint">
+                  Don&rsquo;t include names or other personal information.
                 </p>
-              )}
-              <button type="submit" className="btn btn--primary decision__submit" disabled={!choice || busy}>
-                {save.status === 'saving'
-                  ? amending
-                    ? 'Saving…'
-                    : 'Recording…'
-                  : amending
-                    ? 'Save changes'
-                    : 'Record decision'}
-              </button>
-              <p className="decision__status" role="status">
-                {save.status === 'saved' &&
-                  (save.next
-                    ? `Decision recorded for ${id}. Opening ${save.next}.`
-                    : `Decision recorded for ${id}. No referred samples left to review.`)}
-              </p>
-              {save.error && (
-                <p className="decision__error" role="alert">
-                  {save.error}
-                </p>
-              )}
-              <p className="muted small">Decisions are logged for audit and not used to retrain the model.</p>
-            </form>
 
-            {!amending && (
-              <div className="decision__next">
-                {nextId ? (
-                  <>
-                    <span className="muted">Next in queue</span>
-                    <Button to={`/review/${nextId}`} variant="link">
-                      {nextId}
-                    </Button>
-                  </>
-                ) : (
-                  <Button to="/queue" variant="link">
-                    Back to queue
-                  </Button>
+                {amending && (
+                  <p className="decision__editing muted small">
+                    Editing the review from {formatTime(current.createdAt)}. It stays in the history as an earlier
+                    version.
+                  </p>
                 )}
-              </div>
-            )}
-          </aside>
+                <button type="submit" className="btn btn--primary decision__submit" disabled={!choice || busy}>
+                  {save.status === 'saving'
+                    ? amending
+                      ? 'Saving…'
+                      : 'Recording…'
+                    : amending
+                      ? 'Save changes'
+                      : 'Record decision'}
+                </button>
+                <p className="decision__status" role="status">
+                  {save.status === 'saved' &&
+                    (save.next
+                      ? `Decision recorded for ${id}. Opening ${save.next}.`
+                      : `Decision recorded for ${id}. No referred samples left to review.`)}
+                </p>
+                {save.error && (
+                  <p className="decision__error" role="alert">
+                    {save.error}
+                  </p>
+                )}
+                <p className="muted small">Decisions are logged for audit and not used to retrain the model.</p>
+              </form>
+
+              {!amending && (
+                <div className="decision__next">
+                  {nextId ? (
+                    <>
+                      <span className="muted">Next in queue</span>
+                      <Button to={`/review/${nextId}`} variant="link">
+                        {nextId}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button to="/queue" variant="link">
+                      Back to queue
+                    </Button>
+                  )}
+                </div>
+              )}
+            </aside>
+          </ReviewCodeGate>
         </div>
       </div>
     </div>

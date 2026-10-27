@@ -49,6 +49,16 @@ export function ClipboardCheckIcon(props) {
   )
 }
 
+export function DownloadIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 4v11" />
+      <path d="M7.5 10.5 12 15l4.5-4.5" />
+      <path d="M4 17v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1" />
+    </svg>
+  )
+}
+
 export function SearchIcon(props) {
   return (
     <svg {...base} {...props}>

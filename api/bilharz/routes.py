@@ -6,7 +6,7 @@ import io
 import re
 from typing import Literal
 
-from fastapi import APIRouter, Header, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from . import schemas
@@ -33,6 +33,37 @@ def _rule(request: Request, setting: str | None) -> Rule:
         raise HTTPException(422, f"Unknown setting. Use one of: {names}.") from None
 
 
+def _matches(given: str | None, expected: str) -> bool:
+    """Constant-time comparison of a secret from a request header."""
+    return given is not None and hmac.compare_digest(given.encode(), expected.encode())
+
+
+def require_admin(request: Request, x_admin_token: str | None = Header(default=None)) -> None:
+    """Admin-only endpoints: off (403) unless BILHARZ_ADMIN_TOKEN is set, then it must match."""
+    expected = _state(request).settings.admin_token
+    if not expected:
+        raise HTTPException(403, "This is turned off on this server: no admin token is set.")
+    if not _matches(x_admin_token, expected):
+        raise HTTPException(403, "Not allowed.")
+
+
+def has_review_access(request: Request, x_review_code: str | None) -> bool:
+    """True if no review code is configured, or the right one was sent."""
+    expected = _state(request).settings.review_code
+    return not expected or _matches(x_review_code, expected)
+
+
+def require_review_code(request: Request, x_review_code: str | None = Header(default=None)) -> None:
+    """Review endpoints: open unless BILHARZ_REVIEW_CODE is set, then the code must match."""
+    expected = _state(request).settings.review_code
+    if not expected:
+        return
+    if x_review_code is None:
+        raise HTTPException(403, "A review access code is required.")
+    if not _matches(x_review_code, expected):
+        raise HTTPException(403, "That review code isn't valid.")
+
+
 def _known(request: Request, sample_id: str) -> None:
     if sample_id not in _state(request).samples:
         raise HTTPException(404, "Sample not found.")
@@ -53,6 +84,7 @@ def config(request: Request):
             name: dict(tile_threshold=r.tile_threshold, clear_below=r.clear_below, flag_above=r.flag_above, rule=r.describe())
             for name, r in triage.rules.items()
         },
+        review_code_required=bool(_state(request).settings.review_code),
     )
 
 
@@ -71,13 +103,22 @@ def queue(request: Request, setting: str | None = None):
 
 
 @router.get("/samples/{sample_id}", response_model=schemas.SampleResult, responses={404: {"description": "Unknown sample"}})
-def sample(request: Request, sample_id: str, setting: str | None = None):
+def sample(
+    request: Request,
+    sample_id: str,
+    setting: str | None = None,
+    x_review_code: str | None = Header(default=None),
+):
+    """One sample's result. With a review code configured, the review's note and
+    tester code are only included when the code is sent; the verdict always is."""
     _known(request, sample_id)
     rule = _rule(request, setting)
     store = _state(request).samples
     n = store.count(sample_id, rule)
     score, image, tile = store.highest(sample_id)
     review, review_count = _state(request).reviews.history(sample_id)
+    if review and not has_review_access(request, x_review_code):
+        review = {**review, "note": None, "tester_code": None, "details_hidden": True}
     return dict(
         id=sample_id,
         source="stored",
@@ -171,7 +212,9 @@ async def analyse_upload(request: Request, setting: str | None = None):
     "/reviews/{sample_id}",
     response_model=schemas.ReviewOut,
     status_code=201,
+    dependencies=[Depends(require_review_code)],
     responses={
+        403: {"description": "Review code required or wrong"},
         404: {"description": "Unknown sample"},
         409: {"description": "`supersedes` is no longer the current review"},
         422: {"description": "Invalid review, or `supersedes` is not a review of this sample"},
@@ -213,7 +256,12 @@ def _reviews_with_decisions(
     return rows
 
 
-@router.get("/reviews", response_model=list[schemas.ReviewListItem])
+@router.get(
+    "/reviews",
+    response_model=list[schemas.ReviewListItem],
+    dependencies=[Depends(require_review_code)],
+    responses={403: {"description": "Review code required or wrong"}},
+)
 def list_reviews(
     request: Request,
     view: Literal["current", "all"] = "current",
@@ -241,14 +289,19 @@ def _csv_safe(value):
 @router.get(
     "/reviews.csv",
     response_class=Response,
-    responses={200: {"content": {"text/csv": {}}, "description": "All reviews as CSV"}},
+    dependencies=[Depends(require_admin)],
+    responses={
+        200: {"content": {"text/csv": {}}, "description": "All reviews as CSV"},
+        403: {"description": "Missing or wrong admin token"},
+    },
 )
 def export_reviews(
     request: Request,
     verdict: Literal["infected", "healthy"] | None = None,
     sample_id: str | None = None,
 ):
-    """Every version of every review as a CSV download, newest first: the full history."""
+    """Every version of every review as a CSV download, newest first: the full history.
+    Needs the admin token in X-Admin-Token."""
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(CSV_FIELDS)
@@ -272,11 +325,11 @@ def export_reviews(
     )
 
 
-@router.delete("/reviews", response_model=schemas.Deleted, responses={403: {"description": "Missing or wrong admin token"}})
-def clear_reviews(request: Request, x_admin_token: str | None = Header(default=None)):
-    expected = _state(request).settings.admin_token
-    if not expected:
-        raise HTTPException(403, "Deleting reviews is disabled.")
-    if x_admin_token is None or not hmac.compare_digest(x_admin_token.encode(), expected.encode()):
-        raise HTTPException(403, "Not allowed.")
+@router.delete(
+    "/reviews",
+    response_model=schemas.Deleted,
+    dependencies=[Depends(require_admin)],
+    responses={403: {"description": "Missing or wrong admin token"}},
+)
+def clear_reviews(request: Request):
     return dict(deleted=_state(request).reviews.clear())

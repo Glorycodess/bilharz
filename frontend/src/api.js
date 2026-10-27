@@ -38,10 +38,10 @@ function errorFor(status, body, fallbacks = {}) {
   return new ApiError(message, { status })
 }
 
-async function send(path, options) {
+async function send(path, options = {}) {
   let res
   try {
-    res = await fetch(path, { headers: { Accept: 'application/json' }, ...options })
+    res = await fetch(path, { ...options, headers: { Accept: 'application/json', ...options.headers } })
   } catch {
     throw unreachable()
   }
@@ -56,10 +56,49 @@ const inFlight = new Map()
 
 function request(path, options) {
   if (options?.method && options.method !== 'GET') return send(path, options)
-  if (!inFlight.has(path)) {
-    inFlight.set(path, send(path).finally(() => inFlight.delete(path)))
+  const key = `${path} ${JSON.stringify(options?.headers ?? {})}`
+  if (!inFlight.has(key)) {
+    inFlight.set(key, send(path, options).finally(() => inFlight.delete(key)))
   }
-  return inFlight.get(path)
+  return inFlight.get(key)
+}
+
+// The review access code, when the server asks for one. Kept in this
+// module's memory only (never in storage), so it lasts until the tab reloads.
+let reviewCode = null
+let reviewCodeProblem = null
+
+export function hasReviewCode() {
+  return reviewCode !== null
+}
+
+// Why the code was last rejected, for the code form ("That review code isn't valid.").
+export function reviewCodeError() {
+  return reviewCodeProblem
+}
+
+export function setReviewCode(code) {
+  reviewCode = code
+  reviewCodeProblem = null
+  dataChanged()
+}
+
+function reviewHeaders() {
+  return reviewCode ? { 'X-Review-Code': reviewCode } : {}
+}
+
+// A review request was refused for its code: forget the code and ask again.
+async function withReviewCode(call) {
+  try {
+    return await call()
+  } catch (error) {
+    if (error.status === 403) {
+      reviewCode = null
+      reviewCodeProblem = error.message
+      dataChanged()
+    }
+    throw error
+  }
 }
 
 // Every view that shows server data listens here, so a recorded review
@@ -106,6 +145,8 @@ function toReview(r) {
     note: r.note ?? null,
     testerCode: r.tester_code ?? null,
     supersedes: r.supersedes ?? null,
+    // The server withheld the note and tester code (review code required, not sent).
+    detailsHidden: r.details_hidden ?? false,
   }
 }
 
@@ -145,7 +186,7 @@ export async function getConfig() {
   const body = await request('/api/config')
   const rules = Object.fromEntries(Object.entries(body.settings).map(([key, r]) => [key, toRule(key, r)]))
   const current = rules[body.default]
-  return { ...current, setting: current.label, settings: rules }
+  return { ...current, setting: current.label, settings: rules, reviewCodeRequired: body.review_code_required }
 }
 
 export async function getQueue() {
@@ -161,7 +202,8 @@ export async function getQueue() {
 // Resolves to null for an unknown ID.
 export async function getSample(id) {
   try {
-    return toResult(await request(`/api/samples/${encodeURIComponent(id)}`))
+    // Sent with the review code, if one was entered, so the review's note is included.
+    return toResult(await request(`/api/samples/${encodeURIComponent(id)}`, { headers: reviewHeaders() }))
   } catch (error) {
     if (error.status === 404) return null
     throw error
@@ -171,7 +213,7 @@ export async function getSample(id) {
 // Reviews, newest first, with Bilharz's own decision for each sample.
 // 'current': one per sample, its latest version. 'all': every version.
 export async function getReviews(view = 'current') {
-  const body = await request(`/api/reviews?view=${view}`)
+  const body = await withReviewCode(() => request(`/api/reviews?view=${view}`, { headers: reviewHeaders() }))
   return body.map((r) => ({
     ...toReview(r),
     sampleId: r.sample_id,
@@ -180,15 +222,42 @@ export async function getReviews(view = 'current') {
   }))
 }
 
-export const REVIEWS_CSV_URL = '/api/reviews.csv'
+// Every version of every review as a CSV file, saved by the browser. Needs the
+// admin token, which is sent once and not kept anywhere.
+export async function downloadReviewsCsv(adminToken) {
+  let res
+  try {
+    res = await fetch('/api/reviews.csv', { headers: { 'X-Admin-Token': adminToken } })
+  } catch {
+    throw unreachable()
+  }
+  if (res.status === 403) {
+    const body = await res.json().catch(() => null)
+    const off = typeof body?.detail === 'string' && body.detail.includes('turned off')
+    throw new ApiError(off ? 'Export is turned off on this server: no admin token is set.' : "That token isn't valid.", {
+      status: 403,
+    })
+  }
+  if (!res.ok) throw errorFor(res.status, await res.json().catch(() => null))
+  const url = URL.createObjectURL(await res.blob())
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'bilharz-reviews.csv'
+  document.body.append(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
 
 // A new review, or, with `supersedes` (the current review's id), a new version of it.
 export async function postReview(id, { verdict, note, supersedes = null }) {
-  const body = await request(`/api/reviews/${encodeURIComponent(id)}`, {
-    method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ verdict, note: note || null, supersedes }),
-  })
+  const body = await withReviewCode(() =>
+    request(`/api/reviews/${encodeURIComponent(id)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...reviewHeaders() },
+      body: JSON.stringify({ verdict, note: note || null, supersedes }),
+    }),
+  )
   dataChanged()
   return body
 }

@@ -6,7 +6,9 @@ import { formatCount, formatTime, tilesLookLikeEggs } from '../format.js'
 import Button from '../components/Button.jsx'
 import DecisionScale from '../components/DecisionScale.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
+import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
+import ReviewCodeGate from '../components/ReviewCodeGate.jsx'
 import StatBlock from '../components/StatBlock.jsx'
 import TileCard from '../components/TileCard.jsx'
 import VerdictMark from '../components/VerdictMark.jsx'
@@ -57,14 +59,15 @@ function UploadResult() {
   if (!result) {
     return (
       <div className="container page">
-        <h1 className="headline h1">
-          This result is no longer available. <span className="soft">Uploaded images are never stored.</span>
-        </h1>
-        <div className="result__gone">
-          <Button to="/analyse" variant="link">
-            Back to Analyse
-          </Button>
-        </div>
+        <PageHeader
+          title="This result is no longer available."
+          summary="Uploaded images are never stored."
+          actions={
+            <Button to="/analyse" variant="link">
+              Back to Analyse
+            </Button>
+          }
+        />
       </div>
     )
   }
@@ -80,37 +83,46 @@ function ResultView({ sample, config }) {
 
   return (
     <div className="container page">
-      <nav className="breadcrumb" aria-label="Breadcrumb">
-        {upload ? <Link to="/analyse">Analyse</Link> : <Link to="/queue">Queue</Link>}
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">{upload ? 'Uploaded sample' : id}</span>
-      </nav>
-
-      <OutcomeMark kind={decision} size="lg">
-        {SENTENCE[decision]}
-      </OutcomeMark>
+      <PageHeader
+        breadcrumb={
+          <nav className="breadcrumb" aria-label="Breadcrumb">
+            {upload ? <Link to="/analyse">Analyse</Link> : <Link to="/queue">Queue</Link>}
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">{upload ? 'Uploaded sample' : id}</span>
+          </nav>
+        }
+        title={
+          <>
+            {n === 0 ? 'No tile looks like an egg.' : tilesLookLikeEggs(n)}{' '}
+            <span className="soft">{SUBLINE[decision]}</span>
+          </>
+        }
+        summary={
+          <div className="result__summary">
+            <OutcomeMark kind={decision}>{SENTENCE[decision]}</OutcomeMark>
+            {upload && sample.seconds !== null && <span>Analysed in {sample.seconds.toFixed(1)} s</span>}
+          </div>
+        }
+        actions={
+          <>
+            {!upload && decision === 'referred' && !isReviewed(sample) && (
+              <Button to={`/review/${id}`} variant="outline">
+                Open in review
+              </Button>
+            )}
+            {upload ? (
+              <Button to="/analyse" variant="link">
+                Analyse another sample
+              </Button>
+            ) : (
+              <Button to="/queue" variant="link">
+                Back to queue
+              </Button>
+            )}
+          </>
+        }
+      />
       {isReviewed(sample) && <ReviewerVerdict id={id} review={sample.review} count={sample.reviewCount} />}
-      <h1 className="headline h1--hero result__title">
-        {n === 0 ? 'No tile looks like an egg.' : tilesLookLikeEggs(n)}{' '}
-        <span className="soft">{SUBLINE[decision]}</span>
-      </h1>
-      <div className="result__actions">
-        {!upload && decision === 'referred' && !isReviewed(sample) && (
-          <Button to={`/review/${id}`}>Open in review</Button>
-        )}
-        {upload ? (
-          <Button to="/analyse" variant="link">
-            Analyse another sample
-          </Button>
-        ) : (
-          <Button to="/queue" variant="link">
-            Back to queue
-          </Button>
-        )}
-        {upload && sample.seconds !== null && (
-          <p className="muted result__timing">Analysed in {sample.seconds.toFixed(1)} s</p>
-        )}
-      </div>
 
       <section className="result__section" aria-labelledby="lands-title">
         <h2 className="section-title" id="lands-title">
@@ -190,7 +202,30 @@ function ReviewerVerdict({ id, review, count }) {
           Edit review
         </Link>
       </p>
-      {review.note && <p className="result__verdict-note">{review.note}</p>}
+      {review.detailsHidden ? <HiddenNote /> : review.note && <p className="result__verdict-note">{review.note}</p>}
+    </div>
+  )
+}
+
+// The server needs a review code to show notes. Entering it here keeps it for
+// this tab, and the result reloads with the note.
+function HiddenNote() {
+  const [asking, setAsking] = useState(false)
+  return (
+    <div className="result__verdict-note">
+      <p>
+        Note hidden. Enter the review code to see it.{' '}
+        {!asking && (
+          <button type="button" className="result__code-link" onClick={() => setAsking(true)}>
+            Enter code
+          </button>
+        )}
+      </p>
+      {asking && (
+        <div className="result__code">
+          <ReviewCodeGate>{null}</ReviewCodeGate>
+        </div>
+      )}
     </div>
   )
 }

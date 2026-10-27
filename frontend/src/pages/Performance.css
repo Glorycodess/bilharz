@@ -1,15 +1,10 @@
-.perf__head {
-  display: grid;
-  gap: 20px;
-  margin-bottom: 48px;
-}
-
 /* Segmented control */
 
 .segmented {
   display: inline-flex;
   max-width: 100%;
   padding: 4px;
+  background: var(--white);
   border: 1px solid var(--muted);
   border-radius: var(--radius);
 }
@@ -30,6 +25,7 @@
   color: var(--ink);
 }
 
+/* The chosen setting: a selected state, filled black. */
 .segmented__option[aria-pressed='true'] {
   background: var(--ink);
   color: var(--white);
@@ -38,7 +34,7 @@
 /* Setting */
 
 .perf__setting {
-  margin-top: 48px;
+  margin-top: 32px;
 }
 
 .perf__stats {
@@ -71,7 +67,7 @@
 /* Alternatives */
 
 .perf__section {
-  margin-top: 104px;
+  margin-top: 72px;
 }
 
 .perf__table-wrap {

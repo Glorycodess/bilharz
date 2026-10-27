@@ -1,10 +1,14 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { REVIEWS_CSV_URL, getReviews } from '../api.js'
+import { getReviews } from '../api.js'
 import { pending, useApi } from '../useApi.js'
-import { formatTime } from '../format.js'
+import { formatFull, formatRelative } from '../format.js'
+import ExportDialog from '../components/ExportDialog.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
+import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
+import ReviewCodeGate from '../components/ReviewCodeGate.jsx'
+import Toolbar from '../components/Toolbar.jsx'
 import VerdictMark from '../components/VerdictMark.jsx'
 import { SearchIcon } from '../components/Icons.jsx'
 import './Queue.css'
@@ -18,9 +22,19 @@ const FILTERS = [
 
 const getAllVersions = () => getReviews('all')
 
+export default function Reviews() {
+  return (
+    <div className="container page">
+      <ReviewCodeGate header={<PageHeader title="Reviews" />}>
+        <ReviewsTable />
+      </ReviewCodeGate>
+    </div>
+  )
+}
+
 // One row per reviewed sample: its current review. Earlier versions are kept
 // as the audit trail and shown on request.
-export default function Reviews() {
+function ReviewsTable() {
   const current = useApi(getReviews)
   const versions = useApi(getAllVersions)
   const [filter, setFilter] = useState('all')
@@ -32,12 +46,15 @@ export default function Reviews() {
   if (waiting) return <PageState {...waiting} />
 
   const reviews = current.data
+  const currentIds = new Set(reviews.map((r) => r.id))
   const earlier = new Map()
   for (const v of versions.data) {
-    const isCurrent = reviews.some((r) => r.id === v.id)
-    if (!isCurrent) earlier.set(v.sampleId, [...(earlier.get(v.sampleId) ?? []), v])
+    if (!currentIds.has(v.id)) earlier.set(v.sampleId, [...(earlier.get(v.sampleId) ?? []), v])
   }
   const count = (key) => (key === 'all' ? reviews.length : reviews.filter((r) => r.verdict === key).length)
+  // Only worth a column if some reviewed sample wasn't simply referred.
+  const showDecision = reviews.some((r) => r.decision !== 'referred')
+  const columns = showDecision ? 7 : 6
   const term = search.trim().toLowerCase()
   const rows = reviews.filter(
     (r) => (filter === 'all' || r.verdict === filter) && (!term || r.sampleId.toLowerCase().includes(term)),
@@ -53,20 +70,11 @@ export default function Reviews() {
   }
 
   return (
-    <div className="container page">
-      <header className="queue__head">
-        <div>
-          <h1 className="headline h1">Reviews</h1>
-          <p className="lead queue__summary">
-            {reviews.length} {reviews.length === 1 ? 'sample' : 'samples'} reviewed.
-          </p>
-        </div>
-        {reviews.length > 0 && (
-          <a className="btn btn--primary" href={REVIEWS_CSV_URL} download="bilharz-reviews.csv">
-            Export CSV
-          </a>
-        )}
-      </header>
+    <>
+      <PageHeader
+        title="Reviews"
+        summary={`${reviews.length} reviewed · ${count('infected')} infected · ${count('healthy')} healthy`}
+      />
 
       <p className="reviews__notice" role="status">
         {notice}
@@ -82,42 +90,49 @@ export default function Reviews() {
         </p>
       ) : (
         <>
-          <div className="queue__controls">
-            <div className="queue__tabs" role="group" aria-label="Filter by verdict">
-              {FILTERS.map((f) => (
-                <button
-                  key={f.key}
-                  type="button"
-                  className="queue__tab"
-                  aria-pressed={filter === f.key}
-                  onClick={() => setFilter(f.key)}
-                >
-                  {f.label} <span className="queue__tab-count">{count(f.key)}</span>
-                </button>
-              ))}
-            </div>
-            <div className="queue__search">
-              <label className="visually-hidden" htmlFor="reviews-search">
-                Find a sample
-              </label>
-              <SearchIcon className="queue__search-icon" />
-              <input
-                id="reviews-search"
-                className="input queue__search-input"
-                type="search"
-                placeholder="Find a sample"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
+          <Toolbar
+            start={
+              <div className="queue__tabs" role="group" aria-label="Filter by verdict">
+                {FILTERS.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    className="queue__tab"
+                    aria-pressed={filter === f.key}
+                    onClick={() => setFilter(f.key)}
+                  >
+                    {f.label} <span className="queue__tab-count">{count(f.key)}</span>
+                  </button>
+                ))}
+              </div>
+            }
+            end={
+              <>
+                <div className="queue__search">
+                  <label className="visually-hidden" htmlFor="reviews-search">
+                    Find a sample
+                  </label>
+                  <SearchIcon className="queue__search-icon" />
+                  <input
+                    id="reviews-search"
+                    className="input queue__search-input"
+                    type="search"
+                    placeholder="Find a sample"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <ExportDialog />
+              </>
+            }
+          />
 
           <div className="queue__table-wrap" tabIndex={0} role="region" aria-label="Reviews">
-            <table className="queue__table reviews__table">
+            <table className={`queue__table reviews__table${showDecision ? ' reviews__table--wide' : ''}`}>
               <thead>
                 <tr>
                   <th scope="col">Sample</th>
-                  <th scope="col">Bilharz decision</th>
+                  {showDecision && <th scope="col">Bilharz decision</th>}
                   <th scope="col">Reviewer verdict</th>
                   <th scope="col">Note</th>
                   <th scope="col">Tester</th>
@@ -150,19 +165,17 @@ export default function Reviews() {
                             </button>
                           )}
                         </th>
-                        <td>{r.decision ? <OutcomeMark kind={r.decision} /> : <span className="muted">—</span>}</td>
+                        {showDecision && <td>{r.decision && <OutcomeMark kind={r.decision} />}</td>}
                         <td>
                           <VerdictMark verdict={r.verdict} />
                         </td>
                         <NoteCell note={r.note} />
-                        <td className={r.testerCode ? undefined : 'muted'}>{r.testerCode ?? '—'}</td>
-                        <td>
-                          <time dateTime={r.createdAt}>{formatTime(r.createdAt)}</time>
-                        </td>
+                        <td>{r.testerCode}</td>
+                        <TimeCell iso={r.createdAt} />
                         <td className="queue__action">
                           <Link
                             to={`/review/${r.sampleId}?edit=1`}
-                            className="text-link"
+                            className="row-action"
                             aria-label={`Edit the review of ${r.sampleId}`}
                           >
                             Edit
@@ -175,15 +188,13 @@ export default function Reviews() {
                             <th scope="row">
                               <span className="reviews__replaced">Replaced</span>
                             </th>
-                            <td />
+                            {showDecision && <td />}
                             <td>
                               <VerdictMark verdict={v.verdict} />
                             </td>
                             <NoteCell note={v.note} />
-                            <td className={v.testerCode ? undefined : 'muted'}>{v.testerCode ?? '—'}</td>
-                            <td>
-                              <time dateTime={v.createdAt}>{formatTime(v.createdAt)}</time>
-                            </td>
+                            <td>{v.testerCode}</td>
+                            <TimeCell iso={v.createdAt} />
                             <td />
                           </tr>
                         ))}
@@ -192,7 +203,7 @@ export default function Reviews() {
                 })}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="queue__empty">
+                    <td colSpan={columns} className="queue__empty">
                       No review matches this filter.
                     </td>
                   </tr>
@@ -202,20 +213,29 @@ export default function Reviews() {
           </div>
         </>
       )}
-    </div>
+    </>
   )
 }
 
 function NoteCell({ note }) {
   return (
     <td className="reviews__note-cell">
-      {note ? (
+      {note && (
         <span className="reviews__note" tabIndex={0} title={note}>
           {note}
         </span>
-      ) : (
-        <span className="muted">—</span>
       )}
+    </td>
+  )
+}
+
+function TimeCell({ iso }) {
+  const exact = formatFull(iso)
+  return (
+    <td>
+      <time dateTime={iso} title={exact}>
+        {formatRelative(iso)}
+      </time>
     </td>
   )
 }

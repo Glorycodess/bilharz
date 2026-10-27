@@ -29,6 +29,28 @@
   cursor: not-allowed;
 }
 
+/* Secondary actions (Export CSV, Try again, Cancel): white with a black border. */
+.btn--outline {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--white);
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.btn--outline:hover {
+  background: var(--panel);
+}
+
+.btn--outline:disabled {
+  border-color: var(--muted);
+  background: var(--white);
+  color: var(--grey);
+  cursor: not-allowed;
+}
+
 .btn--link {
   background: none;
   padding: 0;

@@ -22,6 +22,7 @@ class RuleOut(BaseModel):
 class ConfigOut(BaseModel):
     default: str
     settings: dict[str, RuleOut]
+    review_code_required: bool = Field(description="Whether review endpoints need the X-Review-Code header")
 
 
 class LatestReview(BaseModel):
@@ -31,8 +32,13 @@ class LatestReview(BaseModel):
 
 class LatestReviewDetail(LatestReview):
     id: int = Field(description="Send as `supersedes` to amend this review")
-    note: str | None
-    tester_code: str | None
+    note: str | None = Field(description="Null when hidden: see details_hidden")
+    tester_code: str | None = Field(description="Null when hidden: see details_hidden")
+    details_hidden: bool = Field(
+        default=False,
+        description="True when the server needs a review code and none (or a wrong one) was sent: "
+        "the note and tester code are withheld",
+    )
 
 
 class QueueItem(BaseModel):

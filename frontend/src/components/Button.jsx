@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import './Button.css'
 
-// Primary: black button. Link: text link with an arrow.
+// Primary: black button. Outline: white with a black border, for page actions.
+// Link: text link with an arrow.
 export default function Button({ to, variant = 'primary', children, className = '', ...props }) {
   const classes = `btn btn--${variant} ${className}`.trim()
   const content = (
