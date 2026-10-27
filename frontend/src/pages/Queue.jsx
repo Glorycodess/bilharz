@@ -1,41 +1,44 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getConfig, getPerformance, getQueue } from '../api.js'
-import { useApi } from '../useApi.js'
-import { countWaiting, useReviews } from '../reviews.js'
-import Button from '../components/Button.jsx'
+import { countWaiting, getConfig, getPerformance, getQueue, isReviewed, isWaiting } from '../api.js'
+import { pending, useApi } from '../useApi.js'
 import OutcomeMark from '../components/OutcomeMark.jsx'
+import PageState from '../components/PageState.jsx'
+import VerdictMark from '../components/VerdictMark.jsx'
 import { SearchIcon } from '../components/Icons.jsx'
 import './Queue.css'
 
+// Referred means still waiting: a referred sample moves to Reviewed once a
+// technician has decided it.
 const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'referred', label: 'Referred' },
-  { key: 'negative', label: 'Negative' },
-  { key: 'positive', label: 'Positive' },
+  { key: 'all', label: 'All', test: () => true },
+  { key: 'referred', label: 'Referred', test: isWaiting },
+  { key: 'negative', label: 'Negative', test: (s) => s.decision === 'negative' },
+  { key: 'positive', label: 'Positive', test: (s) => s.decision === 'positive' },
+  { key: 'reviewed', label: 'Reviewed', test: isReviewed },
 ]
 
 export default function Queue() {
-  const queue = useApi(getQueue)
-  const config = useApi(getConfig)
-  const performance = useApi(getPerformance)
-  const { reviews } = useReviews()
+  const queueRequest = useApi(getQueue)
+  const configRequest = useApi(getConfig)
+  const performanceRequest = useApi(getPerformance)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
 
-  if (!queue || !config || !performance) return <div className="container page" aria-busy="true" />
+  const waitingFor = pending(queueRequest, configRequest, performanceRequest)
+  if (waitingFor) return <PageState {...waitingFor} />
 
-  const reviewed = new Set(reviews.map((r) => r.id))
-  const count = (key) => (key === 'all' ? queue.length : queue.filter((s) => s.decision === key).length)
-  const waiting = countWaiting(queue, reviews)
-  const referred = count('referred')
-  const estimate = performance.settings
-    .find((s) => s.key === config.setting.toLowerCase())
-    .stats.find((s) => s.key === 'reviewed').value
+  const queue = queueRequest.data
+  const config = configRequest.data
+  const matches = (key) => FILTERS.find((f) => f.key === key).test
+  const count = (key) => queue.filter(matches(key)).length
+  const waiting = countWaiting(queue)
+  const referred = queue.filter((s) => s.decision === 'referred').length
+  const estimate = performanceRequest.data.settings
+    .find((s) => s.key === config.key)
+    ?.stats.find((s) => s.key === 'reviewed').value
   const term = search.trim().toLowerCase()
-  const rows = queue.filter(
-    (s) => (filter === 'all' || s.decision === filter) && (!term || s.id.toLowerCase().includes(term)),
-  )
+  const rows = queue.filter((s) => matches(filter)(s) && (!term || s.id.toLowerCase().includes(term)))
 
   return (
     <div className="container page">
@@ -49,7 +52,6 @@ export default function Queue() {
             </span>
           </p>
         </div>
-        <Button to="/analyse">Analyse a sample</Button>
       </header>
 
       <div className="queue__controls">
@@ -100,11 +102,15 @@ export default function Queue() {
           <tbody>
             {rows.map((s) => {
               const referred = s.decision === 'referred'
-              const status = reviewed.has(s.id)
-                ? 'Reviewed'
-                : referred
-                  ? 'Waiting for review'
-                  : 'Decided automatically'
+              const status = isReviewed(s) ? (
+                <VerdictMark verdict={s.review.verdict}>
+                  Reviewed · {s.review.verdict === 'infected' ? 'Infected' : 'Healthy'}
+                </VerdictMark>
+              ) : isWaiting(s) ? (
+                'Waiting for review'
+              ) : (
+                'Decided automatically'
+              )
               const to = referred ? `/review/${s.id}` : `/samples/${s.id}`
               return (
                 <tr key={s.id}>
@@ -117,7 +123,7 @@ export default function Queue() {
                   <td>
                     <OutcomeMark kind={s.decision} />
                   </td>
-                  <td className={status === 'Decided automatically' ? 'muted' : undefined}>{status}</td>
+                  <td className={!isReviewed(s) && !referred ? 'muted' : undefined}>{status}</td>
                   <td className="queue__action">
                     <Link to={to} className="text-link" aria-label={`${referred ? 'Review' : 'View'} ${s.id}`}>
                       {referred ? 'Review' : 'View'} <span aria-hidden="true">→</span>
@@ -129,7 +135,7 @@ export default function Queue() {
             {rows.length === 0 && (
               <tr>
                 <td colSpan={5} className="queue__empty">
-                  No sample matches &ldquo;{search.trim()}&rdquo;.
+                  {term ? <>No sample matches &ldquo;{search.trim()}&rdquo;.</> : 'No samples here yet.'}
                 </td>
               </tr>
             )}
@@ -140,7 +146,7 @@ export default function Queue() {
       <p className="muted small queue__foot">Decisions from the {config.setting} setting.</p>
       <p className="muted small queue__foot-more">
         {referred} of {queue.length} samples are referred by the final rule, fitted on all {queue.length} patients. For
-        new patients, the cross-validated estimate is {estimate}.
+        new patients, the cross-validated estimate is {estimate ?? 'not available'}.
       </p>
     </div>
   )

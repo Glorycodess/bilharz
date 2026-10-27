@@ -41,7 +41,12 @@
   margin-bottom: 4px;
 }
 
-.dropzone__button {
+.dropzone__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px 24px;
   margin-top: 28px;
 }
 
@@ -50,6 +55,11 @@
   margin-top: 16px;
   font-size: 14px;
   font-weight: 500;
+}
+
+.dropzone__status--error {
+  max-width: 420px;
+  color: var(--positive);
 }
 
 /* Sample picker */
@@ -113,6 +123,33 @@
 .progress__fill {
   height: 100%;
   background: var(--orange);
+  transition: width 0.2s linear;
+}
+
+/* Scoring: no percentage to show, so a bar that keeps moving. */
+.progress__track--busy {
+  position: relative;
+}
+
+.progress__track--busy .progress__fill {
+  position: absolute;
+  width: 30%;
+  animation: progress-busy 1.4s ease-in-out infinite;
+}
+
+@keyframes progress-busy {
+  from {
+    left: -30%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+.progress__error {
+  margin: 14px 0 20px;
+  font-weight: 600;
+  color: var(--positive);
 }
 
 .progress__count {
@@ -158,6 +195,19 @@
 .progress__step--active .progress__dot {
   border: 0;
   background: var(--orange);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress__fill {
+    transition: none;
+  }
+
+  .progress__track--busy .progress__fill {
+    left: 0;
+    width: 100%;
+    animation: none;
+    opacity: 0.5;
+  }
 }
 
 @media (max-width: 900px) {

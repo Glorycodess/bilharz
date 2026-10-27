@@ -1,5 +1,5 @@
 // Repeated 5-fold cross-validation over 65 patients. Efficiency is the main
-// analysis; the app runs on Safety.
+// analysis; the app runs on Safety. Each setting's rule comes from the API.
 export const settings = [
   {
     key: 'efficiency',
@@ -9,19 +9,16 @@ export const settings = [
       { key: 'cleared', label: 'Healthy patients cleared', value: '96.7%', interval: '83.8–99.9%' },
       { key: 'reviewed', label: 'Samples a technician reviews', value: '45.8%', interval: '33.4–58.7%', signal: true },
     ],
-    rule: 'A tile counts if it scores above 0.99. No tiles: negative. More than 12: positive.',
     note: 'Fewer reviews. In testing, one lightly infected patient was cleared when its eggs fell just below the bar.',
   },
   {
     key: 'safety',
     label: 'Safety',
-    isDefault: true,
     stats: [
       { key: 'caught', label: 'Infected patients caught', value: '100%', interval: 'at least 89.1%' },
       { key: 'cleared', label: 'Healthy patients cleared', value: '96.5%', interval: '83.5–99.9%' },
       { key: 'reviewed', label: 'Samples a technician reviews', value: '72.1%', interval: '59.6–82.5%', signal: true },
     ],
-    rule: 'A tile counts if it scores above 0.95. No tiles: negative. More than 35: positive.',
     note: 'No infected patient was cleared in testing. More samples go to a technician in return.',
   },
 ]

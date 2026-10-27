@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { getConfig, getQueue } from '../api.js'
+import { countWaiting, getConfig, getQueue } from '../api.js'
 import { useApi } from '../useApi.js'
-import { countWaiting, useReviews } from '../reviews.js'
 import Logo from './Logo.jsx'
-import { ChartIcon, CloseIcon, HomeIcon, ListIcon, MenuIcon, UploadIcon } from './Icons.jsx'
+import { ChartIcon, ClipboardCheckIcon, CloseIcon, HomeIcon, ListIcon, MenuIcon, UploadIcon } from './Icons.jsx'
 import './Header.css'
 
 const NAV = [
   { to: '/', label: 'Home', Icon: HomeIcon, match: ['/'] },
   { to: '/analyse', label: 'Analyse', Icon: UploadIcon, match: ['/analyse'] },
   { to: '/queue', label: 'Queue', Icon: ListIcon, match: ['/queue', '/samples', '/review'], badge: true },
+  { to: '/reviews', label: 'Reviews', Icon: ClipboardCheckIcon, match: ['/reviews'] },
   { to: '/performance', label: 'Performance', Icon: ChartIcon, match: ['/performance'] },
 ]
 
@@ -19,10 +19,9 @@ const FOCUSABLE = 'a[href], button:not([disabled])'
 // Sticky top bar. The menu button opens the navigation sidebar over the page.
 export default function Header() {
   const { pathname } = useLocation()
-  const queue = useApi(getQueue)
-  const config = useApi(getConfig)
-  const { reviews } = useReviews()
-  const waiting = queue ? countWaiting(queue, reviews) : null
+  const queue = useApi(getQueue).data
+  const config = useApi(getConfig).data
+  const waiting = queue ? countWaiting(queue) : null
 
   const [open, setOpen] = useState(false)
   const [openedOn, setOpenedOn] = useState(pathname)

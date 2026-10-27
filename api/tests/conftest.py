@@ -1,5 +1,11 @@
 import io
+import os
+import tempfile
 from dataclasses import replace
+
+# Importing `server` builds the default app, which opens the reviews database.
+# Point it at a throwaway file first, so tests never touch real reviews.
+os.environ["BILHARZ_REVIEWS_DB"] = os.path.join(tempfile.mkdtemp(prefix="bilharz-tests-"), "reviews.db")
 
 import pytest
 from fastapi.testclient import TestClient

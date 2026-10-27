@@ -24,9 +24,17 @@
 
 /* Decision panel */
 
+.review__side {
+  display: grid;
+  gap: 20px;
+}
+
+.review__legend {
+  margin-bottom: 16px;
+  font-size: 15px;
+}
+
 .decision {
-  position: sticky;
-  top: calc(var(--header-height) + 24px);
   border: 1px solid var(--line);
   border-radius: var(--radius-panel);
   padding: 28px;
@@ -114,10 +122,6 @@
   .review {
     grid-template-columns: 1fr;
   }
-
-  .decision {
-    position: static;
-  }
 }
 
 @media (max-width: 720px) {
@@ -135,4 +139,15 @@
   .decision {
     padding: 24px 20px;
   }
+}
+
+.decision__editing {
+  margin-top: 16px;
+}
+
+.decision__error {
+  margin: -4px 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--positive);
 }

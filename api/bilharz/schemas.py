@@ -24,11 +24,22 @@ class ConfigOut(BaseModel):
     settings: dict[str, RuleOut]
 
 
+class LatestReview(BaseModel):
+    verdict: Literal["infected", "healthy"]
+    created_at: str
+
+
+class LatestReviewDetail(LatestReview):
+    id: int = Field(description="Send as `supersedes` to amend this review")
+    note: str | None
+    tester_code: str | None
+
+
 class QueueItem(BaseModel):
     id: str
     confident_tiles: int
     decision: Decision
-    reviewed: bool
+    review: LatestReview | None = Field(description="The latest review, or null if never reviewed")
 
 
 class Queue(BaseModel):
@@ -61,6 +72,8 @@ class SampleResult(BaseModel):
     highest_score: float
     highest_tile: HighestTile
     top_tiles: list[TileOut]
+    review: LatestReviewDetail | None = Field(default=None, description="The current (latest) review: the final verdict")
+    review_count: int = Field(default=0, description="Versions of the review, the current one included")
 
 
 class AnalysisResult(SampleResult):
@@ -71,6 +84,7 @@ class ReviewIn(BaseModel):
     verdict: Literal["infected", "healthy"]
     note: str | None = Field(default=None, max_length=500)
     tester_code: str | None = Field(default=None, pattern=r"^T[0-9]{1,3}$")
+    supersedes: int | None = Field(default=None, description="To amend: the id of the sample's current review")
 
 
 class ReviewOut(BaseModel):
@@ -80,6 +94,12 @@ class ReviewOut(BaseModel):
     note: str | None
     tester_code: str | None
     created_at: str
+    supersedes: int | None
+
+
+class ReviewListItem(ReviewOut):
+    decision: Decision = Field(description="Bilharz's decision for the sample under the default setting")
+    version_count: int = Field(description="How many versions this sample's review has")
 
 
 class Deleted(BaseModel):

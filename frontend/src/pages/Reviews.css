@@ -1,0 +1,76 @@
+.reviews__empty {
+  padding: 32px 0;
+  border-top: 1px solid var(--line);
+  font-size: 18px;
+  color: var(--grey);
+}
+
+.reviews__table {
+  min-width: 920px;
+}
+
+.reviews__note-cell {
+  width: 32%;
+  max-width: 0; /* lets the note shrink to the column and truncate */
+}
+
+/* One line, with the full note on hover or keyboard focus. */
+.reviews__note {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 4px;
+}
+
+.reviews__note:hover,
+.reviews__note:focus {
+  overflow: visible;
+  white-space: normal;
+}
+
+.reviews__notice:empty {
+  display: none;
+}
+
+.reviews__notice {
+  margin: -24px 0 28px;
+  font-weight: 600;
+  color: var(--negative);
+}
+
+.reviews__versions {
+  display: block;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--grey);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.reviews__versions:hover {
+  color: var(--ink);
+}
+
+.reviews__old th,
+.reviews__old td {
+  color: var(--grey);
+  background: var(--panel);
+}
+
+.reviews__old .outcome {
+  color: var(--grey);
+}
+
+.reviews__replaced {
+  padding-left: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

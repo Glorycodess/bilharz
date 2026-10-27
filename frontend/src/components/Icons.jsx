@@ -39,6 +39,16 @@ export function CheckIcon(props) {
   )
 }
 
+export function ClipboardCheckIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="5" y="4.5" width="14" height="16.5" rx="2.5" />
+      <path d="M9 4.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v.5a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1Z" />
+      <path d="m9 13 2 2 4-4.5" />
+    </svg>
+  )
+}
+
 export function SearchIcon(props) {
   return (
     <svg {...base} {...props}>

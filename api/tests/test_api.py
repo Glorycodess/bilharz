@@ -34,7 +34,7 @@ def test_queue(client):
     assert body["setting"] == "safety"
     assert len(body["samples"]) == 65
     first = body["samples"][0]
-    assert set(first) == {"id", "confident_tiles", "decision", "reviewed"}
+    assert set(first) == {"id", "confident_tiles", "decision", "review"}
     by_id = {s["id"]: s for s in body["samples"]}
     assert by_id["DT40"]["confident_tiles"] == 4 and by_id["DT40"]["decision"] == "referred"
 

@@ -1,17 +1,22 @@
 import { useState } from 'react'
-import { getPerformance } from '../api.js'
-import { useApi } from '../useApi.js'
+import { getConfig, getPerformance } from '../api.js'
+import { pending, useApi } from '../useApi.js'
+import { ruleText } from '../format.js'
+import PageState from '../components/PageState.jsx'
 import StatBlock from '../components/StatBlock.jsx'
 import './Performance.css'
 
 export default function Performance() {
-  const data = useApi(getPerformance)
+  const performance = useApi(getPerformance)
+  const config = useApi(getConfig)
   const [selected, setSelected] = useState(null)
 
-  if (!data) return <div className="container page" aria-busy="true" />
+  const waiting = pending(performance, config)
+  if (waiting) return <PageState {...waiting} />
 
-  const { settings, alternatives, referral } = data
-  const current = settings.find((s) => s.key === selected) ?? settings.find((s) => s.isDefault)
+  const { settings, alternatives, referral } = performance.data
+  const current = settings.find((s) => s.key === selected) ?? settings.find((s) => s.key === config.data.key)
+  const rule = config.data.settings[current.key]
 
   return (
     <div className="container page">
@@ -30,7 +35,7 @@ export default function Performance() {
             onClick={() => setSelected(s.key)}
           >
             {s.label}
-            {s.isDefault && ' (default)'}
+            {s.key === config.data.key && ' (default)'}
           </button>
         ))}
       </div>
@@ -49,7 +54,7 @@ export default function Performance() {
           ))}
         </div>
         <div className="perf__rule">
-          <p className="strong">{current.rule}</p>
+          {rule && <p className="strong">{ruleText(rule)}</p>}
           <p className="muted">{current.note}</p>
         </div>
       </section>

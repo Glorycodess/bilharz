@@ -1,0 +1,71 @@
+.egg-guide {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+}
+
+.egg-guide__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 24px;
+  border-radius: var(--radius-panel);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.egg-guide__summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A chevron that turns when the panel opens. */
+.egg-guide__summary::after {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-right: 1.75px solid var(--grey);
+  border-bottom: 1.75px solid var(--grey);
+  transform: rotate(45deg) translateY(-2px);
+}
+
+.egg-guide[open] .egg-guide__summary::after {
+  transform: rotate(-135deg) translateY(-2px);
+}
+
+.egg-guide__summary:hover {
+  background: var(--panel);
+}
+
+.egg-guide__body {
+  display: grid;
+  gap: 12px;
+  padding: 0 24px 22px;
+  font-size: 15px;
+  color: var(--grey);
+}
+
+.egg-guide__body em {
+  font-style: italic;
+  color: var(--ink);
+}
+
+.egg-guide__figure {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--white);
+  border: 1px solid var(--line);
+}
+
+.egg-guide__caption {
+  font-size: 13px;
+}
+
+.egg-guide__note {
+  font-size: 13px;
+}

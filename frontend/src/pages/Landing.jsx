@@ -21,7 +21,7 @@ const STEPS = [
 ]
 
 export default function Landing() {
-  const performance = useApi(getPerformance)
+  const performance = useApi(getPerformance).data
 
   return (
     <>

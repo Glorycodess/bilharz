@@ -89,3 +89,32 @@
     gap: 16px;
   }
 }
+
+.result__timing {
+  font-size: 15px;
+}
+
+.result__gone {
+  margin-top: 40px;
+}
+
+.result__verdict {
+  margin-top: 14px;
+}
+
+.result__verdict-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  font-size: 15px;
+}
+
+.result__verdict-note {
+  margin-top: 6px;
+  max-width: 640px;
+  padding-left: 22px;
+  font-size: 15px;
+  color: var(--grey);
+  overflow-wrap: anywhere;
+}
