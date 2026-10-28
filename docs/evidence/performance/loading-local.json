@@ -1,0 +1,78 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "browser": "Chromium 156.0.8078.4",
+  "runs": 3,
+  "profiles": {
+    "none": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "cpu_slowdown": 1,
+      "network": "none",
+      "median": {
+        "table_ms": 95,
+        "first_tile_ms": 114,
+        "all_12_tiles_ms": 495
+      },
+      "runs": [
+        {
+          "table_ms": 195,
+          "first_tile_ms": 114,
+          "all_12_tiles_ms": 511
+        },
+        {
+          "table_ms": 95,
+          "first_tile_ms": 106,
+          "all_12_tiles_ms": 494
+        },
+        {
+          "table_ms": 93,
+          "first_tile_ms": 114,
+          "all_12_tiles_ms": 495
+        }
+      ]
+    },
+    "low-end": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "cpu_slowdown": 4,
+      "network": "Slow 3G (400 kbit/s, 2 s round trip)",
+      "median": {
+        "table_ms": 8882,
+        "first_tile_ms": 12489,
+        "all_12_tiles_ms": 15939
+      },
+      "runs": [
+        {
+          "table_ms": 8882,
+          "first_tile_ms": 12440,
+          "all_12_tiles_ms": 15890
+        },
+        {
+          "table_ms": 9410,
+          "first_tile_ms": 12489,
+          "all_12_tiles_ms": 15939
+        },
+        {
+          "table_ms": 8880,
+          "first_tile_ms": 13960,
+          "all_12_tiles_ms": 19359
+        }
+      ]
+    }
+  },
+  "landing_layout_shift": {
+    "viewport": "1440x900",
+    "network": "10 Mbit/s, 40 ms",
+    "runs": [
+      0.002,
+      0.002,
+      0.002
+    ],
+    "median": 0.002
+  },
+  "measured_at": "2026-10-28T04:03:51.301Z"
+}

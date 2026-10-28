@@ -1,0 +1,33 @@
+{
+  "question": "Does preloading the landing page's web fonts remove its layout shift, and what does it cost on a slow connection?",
+  "setup": "Local build through vite preview, Chromium 156. Layout shift: Landing at 1440x900 on a 10 Mbit/s, 40 ms network. Low-end: 390x844, 4x CPU slowdown, Slow 3G; medians of 3 runs.",
+  "variants": {
+    "no preloads (kept)": {
+      "loads_with_shift": "6 of 30",
+      "shift_when_it_happens": 0.284,
+      "low_end_median_ms": {
+        "queue_table": 8897,
+        "first_review_tile": 12444,
+        "all_12_tiles": 15854
+      }
+    },
+    "three fonts preloaded (Inter 600, Inter Tight 600 and 700)": {
+      "loads_with_shift": "0 of 15",
+      "low_end_median_ms": {
+        "queue_table": 10380,
+        "first_review_tile": 12486,
+        "all_12_tiles": 16522
+      }
+    },
+    "four fonts preloaded (also Inter 400)": {
+      "loads_with_shift": "0 of 30",
+      "low_end_median_ms": {
+        "queue_table": 10895,
+        "first_review_tile": 13151,
+        "all_12_tiles": 17001
+      }
+    }
+  },
+  "decision": "Not kept: preloading slows the first data on every page by 1.5-2 s on Slow 3G to fix a shift on one desktop page.",
+  "measured_at": "2026-10-28"
+}

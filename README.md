@@ -6,12 +6,16 @@ detector decides the clear cases, and refers the uncertain ones to a human revie
 Final-year capstone · BSc Software Engineering (Machine Learning) ·
 African Leadership University · Glory Paul
 
+## Links
+
 | | |
 |---|---|
+| **Live app** | https://iamglory-bilharz.hf.space |
+| **Hugging Face Space** | https://huggingface.co/spaces/iamglory/bilharz |
 | **Repository** | https://github.com/Glorycodess/bilharz |
-| **Live API** | https://bilharz.onrender.com/docs |
 | **Figma** | https://www.figma.com/design/yNDxzYmsbYGOrhljmDWXmz/Bilharz |
-| **Video demo** | https://youtu.be/ufj1dCEyPjw |
+| **Walkthrough video** | (link to be added) |
+| **Technical report** | (link to be added) |
 
 ---
 
@@ -84,37 +88,110 @@ On this cohort, triage approaches full-review accuracy with less than half the
 review workload. The Results section below gives the full comparison, intervals, and the one
 infection it missed.
 
-![Bilharz system flow](figures/bilharz-architecture.png)
-
 ## 2. Setting up the environment
 
 ### Trying it without installing anything
 
-The API is live at **https://bilharz.onrender.com/docs**. Expand
-`GET /samples/{sample_id}/predict`, click **Try it out**, and enter a sample ID
-from `DT01` to `DT65`.
+Open **https://iamglory-bilharz.hf.space**. The Queue lists the 65 evaluation
+samples with their decisions; any referred sample can be opened for review, and
+the Analyse page accepts a folder of 117 microscope images. The Space sleeps
+when unused, so the first visit after a quiet period can take a minute while it
+starts.
 
-It runs on Render's free tier, which sleeps after fifteen minutes idle. The first
-request after that takes about fifty seconds while the service wakes.
+### Technical requirements
 
-### Requirements
+| | Version |
+|---|---|
+| Python (local) | 3.12 to 3.14 (developed on 3.14.7) |
+| Python (Hugging Face Space) | 3.12.12 |
+| Node.js and npm | Node 20.19+ or 22.12+ (developed on Node 26.12, npm 11.20) |
+| Backend | FastAPI 0.162, Starlette 1.10, Pydantic 2.14 (2.12.5 on the Space), uvicorn 0.54 |
+| Model runtime | onnxruntime 1.31 (CPU); PyTorch 2.13 and torchvision 0.28 on the Space |
+| Space wrapper | Gradio 6.30 with `spaces` 0.51.3 (ZeroGPU) |
+| Frontend | React 19.3, React Router 7.18, Vite 8.3 |
+| Tests | pytest 9.1, Vitest 5.0, Testing Library, Playwright 1.64 |
 
-- Python 3.10+
-- Git
-- A Kaggle account, for the notebooks (they need a GPU)
+**Hardware.** Everything runs on an ordinary CPU: a full 117-image analysis takes
+about 30 seconds on an Apple M1 with ONNX Runtime and needs about 0.9 GB of
+memory at its peak. On the Space the detector runs on ZeroGPU (an analysis takes
+about 5 seconds on the server), with the CPU as the fallback. The notebooks need a
+GPU and were run on Kaggle.
 
-### Running the API locally
+**Browsers.** Tested in Chromium 156 (Chrome, Edge), Firefox 157 and WebKit 27.2
+(the engine behind Safari), at 1440, 768 and 390 pixels wide; see
+[docs/testing.md](docs/testing.md#compatibility).
+
+### Installation and running
+
+The model and tile files are not in git (they are on the Hugging Face Space).
+Put `detector.onnx`, `detector.pt` and `tiles.zip` in `api/assets/`, next to
+`tiles_manifest.json` and `triage_config.json`.
+
+**Backend**, from `api/`:
 
 ```bash
-git clone https://github.com/Glorycodess/bilharz.git
-cd bilharz/api
-python3 -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app:app --reload
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+.venv/bin/uvicorn server:app --reload --port 8000
 ```
 
-The interface is then served at `http://127.0.0.1:8000/docs`.
+The API is then at `http://localhost:8000/api`, with interactive docs at
+`http://localhost:8000/docs`. Reviews are stored in `api/data/reviews.db`; set
+`BILHARZ_REVIEWS_DB` to use another file. [api/README.md](api/README.md) lists
+every endpoint and environment variable.
+
+**Frontend**, from `frontend/`:
+
+```bash
+npm ci
+npm run dev
+```
+
+The site is then at `http://localhost:5173`.
+
+**Both together.** Start the backend first, then the frontend: the development
+server sends every `/api` request to `http://localhost:8000` (set
+`BILHARZ_API_TARGET` for another address). If the backend is not running, the
+site says the server is waking up and tries again.
+
+### Running the tests
+
+```bash
+cd api && .venv/bin/pytest                # backend: unit and integration
+cd api && .venv/bin/pytest --cov=bilharz --cov=server --cov-report=term   # with coverage
+
+cd frontend
+npx playwright install chromium firefox webkit   # once
+npm test                  # unit and component tests (Vitest)
+npm run test:e2e          # end to end in Chromium, against a local backend with a throwaway database
+npm run test:compat       # three browsers, three screen sizes, eight pages
+npm run check:api         # a running backend against the fields the frontend uses
+```
+
+`test:e2e` and `test:compat` build the site and start their own servers on ports
+8010, 4173 and 4174; they never touch `api/data/reviews.db`. The end-to-end
+upload test needs the real DT40 sample (below) and is skipped without it.
+
+### Fetching real test samples
+
+```bash
+api/.venv/bin/python scripts/fetch_samples.py DT40 DT02 DT29
+```
+
+This downloads only those patients' 117 images each from the Zenodo dataset
+(about 180 MB each), using HTTP range requests on the 12.5 GB archive, into
+`test-data/samples/<ID>/`, which git ignores. The folders can be uploaded on the
+Analyse page as they are.
+
+### Building the Hugging Face Space
+
+```bash
+git clone https://huggingface.co/spaces/iamglory/bilharz ~/bilharz-space   # once
+deploy/build_space.sh
+```
+
+This builds the frontend and assembles the Space in `~/bilharz-space`; committing
+and pushing there deploys it. See [deploy/README.md](deploy/README.md).
 
 ### Running the notebooks
 
@@ -124,9 +201,10 @@ The notebooks run on Kaggle and download their data from Zenodo. Run each with
 | Notebook | What it does | Kaggle settings |
 |---|---|---|
 | `01-data-collection.ipynb` | Downloads the diagnosis dataset, verifies its checksum, and checks its structure | Internet on |
-| `02-data-preparation.ipynb` | Data preparation and exploratory analysis, and a baseline using generic image features | Internet on, GPU T4 |
+| `02-data-preparation-and-baseline.ipynb` | Data preparation and exploratory analysis, and a baseline using generic image features | Internet on, GPU T4 |
 | `03-detection.ipynb` | Trains the egg detector on a separate, expert-annotated dataset | Internet on, GPU T4 |
-| `04-prediction.ipynb` | Scores all 65 patients, applies triage, compares it with alternative systems, and evaluates deferral | Internet on, GPU T4, output of `03` attached |
+| `04-prediction-and-evaluation.ipynb` | Scores all 65 patients, applies triage, compares it with alternative systems, and evaluates deferral | Internet on, GPU T4, output of `03` attached |
+| `05-export.ipynb` | Exports the detector to ONNX, checks it end to end on all 65 patients, and builds the app's tiles and triage rule | Internet on, outputs of `03` and `04` attached |
 
 Notebook 04 takes about 55 minutes, mostly the 12.5 GB download. Its tile scores
 are saved in `results/patient_scores.npz`, so the analysis can be re-run without
@@ -140,27 +218,34 @@ centre of the design, since it is where the human and the model meet.
 | Screen | Purpose |
 |---|---|
 | Landing | What the system does and the evidence for it |
-| Upload | Submit a sample's images for analysis |
-| Triage result | The outcome for one sample: negative, positive, or referred |
-| Review workspace | The highest-ranked regions of a referred sample, for the reviewer to confirm or override |
-| Queue | Samples waiting for review |
-| Performance | Coverage, accuracy and review workload across samples |
+| Analyse | Upload a sample's 117 images, or open a stored sample |
+| Result | The outcome for one sample: negative, positive, or referred |
+| Review | The 12 highest-ranked tiles of a referred sample, for a technician to decide |
+| Queue | All samples, with the ones waiting for review |
+| Reviews | Every recorded review, its earlier versions, and a CSV export |
+| Performance | Accuracy and review workload for the two decision settings |
 
 The working designs are on
 [Figma](https://www.figma.com/design/yNDxzYmsbYGOrhljmDWXmz/Bilharz). Earlier
 mockups are in `design/`.
 
-## 4. Deployment plan
+## 4. Deployment
 
-**Current.** A FastAPI service with auto-generated docs, deployed on Render's free
-tier from this repository; pushes to `master` redeploy automatically. It currently
-serves stored results from the earlier, pre-detector model, demonstrating the
-decision flow rather than live analysis.
+**Current.** The app runs on a Hugging Face Space (Gradio SDK, ZeroGPU hardware)
+at https://iamglory-bilharz.hf.space. One server provides the API under `/api`,
+the built React site at `/`, and a small Gradio status page at `/gradio`.
+Uploads are scored by the detector in PyTorch on ZeroGPU, with ONNX Runtime on the
+CPU as the fallback. The 65 evaluation samples are served from their stored
+scores. `deploy/build_space.sh` assembles the Space from this repository; pushing
+to the Space's own repository redeploys it.
 
-**Next.** Serve the trained detector and the triage rule, accept uploaded images
-instead of a sample ID, store reviewer decisions persistently, and package the
-service in a container so it can run on a laboratory's own infrastructure, where
-patient data often cannot leave the site.
+![Bilharz architecture](figures/bilharz-architecture.png)
+
+The design behind it is described in [docs/architecture.md](docs/architecture.md).
+
+**Next.** Store reviews on persistent storage (the Space's disk is reset when it
+restarts), and package the service in a container so it can run on a
+laboratory's own infrastructure, where patient data often cannot leave the site.
 
 **Longer term.** The Schistoscope is used in the field with unreliable
 connectivity, so a realistic deployment runs analysis on or beside the microscope
@@ -168,10 +253,31 @@ and synchronises records when a connection is available.
 
 ## 5. Video demo
 
-**[Watch the demo (YouTube)](https://youtu.be/ufj1dCEyPjw)**
+Walkthrough video: (link to be added)
 
-The current demo was recorded on the earlier version of the system; an updated
-demo of the detector and triage will replace it.
+An earlier demo, recorded on the first version of the system, is at
+https://youtu.be/ufj1dCEyPjw.
+
+## 6. Testing
+
+The backend has unit and integration tests (pytest), the frontend has component
+tests (Vitest and Testing Library) and end-to-end tests (Playwright), and a
+contract check compares a running backend with the fields the frontend reads.
+The app was checked in three browser engines at three screen sizes, measured for
+speed locally and on the live site, and stress-tested locally.
+[docs/testing.md](docs/testing.md) gives every strategy, its results and what was
+changed because of it.
+
+| Strategy | Result |
+|---|---|
+| Backend unit and integration (pytest) | 91 passed, 98% statement coverage |
+| Frontend unit and component (Vitest) | 31 passed |
+| End to end (Playwright, Chromium) | 7 passed, including a real 117-image upload |
+| API contract (`npm run check:api`) | All fields the frontend reads are present |
+| Real samples (DT40, DT02, DT29) | All three decisions match the stored results, locally and live |
+| Compatibility (3 engines × 3 sizes × 8 pages) | Local 72 of 72; live 69 of 72 (a WebKit console message on one page) |
+| Analysis time | About 30 s on a laptop CPU; about 5 s on the live GPU, plus the upload |
+| Stress | 1 of 4 simultaneous uploads analysed, 3 refused with 429; 200 of 200 concurrent reads served |
 
 ---
 
@@ -328,25 +434,36 @@ alone they look alike, which is why they are referred.
 - **Tiles do not overlap**, so an egg on a tile boundary is split between two.
 - **The Schistoscope figures** come from a different detector and pipeline, so
   they are context, not a like-for-like comparison.
-- **The live API** still serves the earlier model.
+- **Reviews on the live app are not kept.** The Space's disk is reset when it
+  restarts or sleeps, and the reviews database with it.
+- **Uploads must arrive within 120 seconds.** A sample is about 180 MB, so a
+  connection slower than about 1.5 MB/s cannot upload one to the live app.
+- **GPU time is shared.** ZeroGPU has a daily quota; when it is used up, uploads
+  are scored on the CPU, which takes about 30 seconds instead of 5.
 
 ## Next
 
-1. Serve the detector and triage from the API, with the safety margin as the
-   default
-2. Build the six-screen interface around the triage outcomes
-3. Retrain the detector with debris and fibres as negative examples
-4. Validate on new field samples from another site
+1. Keep reviews on persistent storage on the live app
+2. Retrain the detector with debris and fibres as negative examples
+3. Validate on new field samples from another site
+4. Run analysis beside the microscope, for sites without a reliable connection
 
 ## API endpoints
 
+All under `/api`; [api/README.md](api/README.md) has the details.
+
 | Endpoint | Purpose |
 |---|---|
-| `GET /samples/{id}/predict` | Score a sample; return a verdict or a referral |
-| `GET /review/queue` | Samples referred to a reviewer |
-| `GET /review/{id}/regions` | The regions a reviewer should inspect, ranked |
-| `POST /review/{id}/decision` | Record a reviewer's verdict for audit |
-| `GET` / `PUT /settings` | Read or change the referral band |
+| `GET /api/health` | Status, the active scorer, and whether reviews persist |
+| `GET /api/config` | The two decision settings and their rules |
+| `GET /api/samples` | The queue: each sample's confident-tile count, decision and latest review |
+| `GET /api/samples/{id}` | One sample's result, with its 12 highest-scoring tiles |
+| `GET /api/tiles/{id}/{rank}.jpg` | One of those tiles |
+| `POST /api/analyse` | Analyse an uploaded sample of 117 JPEG images |
+| `POST /api/reviews/{id}` | Record a technician's verdict, or a new version of it |
+| `GET /api/reviews` | The current reviews, or every version |
+| `GET /api/reviews.csv` | Every review as CSV (needs the admin token) |
+| `DELETE /api/reviews` | Delete all reviews (needs the admin token) |
 
 Reviewer verdicts are stored for audit and are not used to retrain the model.
 
@@ -354,11 +471,15 @@ Reviewer verdicts are stored for audit and are not used to retrain the model.
 
 ```
 bilharz/
-├── api/          FastAPI service
-├── notebooks/    Data collection, preparation, detection and prediction
+├── api/          FastAPI backend: triage, scoring, uploads, reviews, and its tests
+├── frontend/     React and Vite site, with unit, end-to-end and compatibility tests
+├── deploy/       Hugging Face Space build script and entry point; submission ZIP script
+├── notebooks/    Data collection, preparation, detection, prediction and export
 ├── results/      Saved tile scores for the 65 patients
-├── figures/      Result figures and the system diagram
+├── figures/      Result figures and the architecture diagram
+├── docs/         Architecture, testing results, and evidence (screenshots, measurements)
 ├── design/       Earlier interface mockups
+├── scripts/      Fetching real test samples; backend measurements and stress tests
 └── README.md
 ```
 

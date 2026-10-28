@@ -1,0 +1,93 @@
+{
+  "url": "https://iamglory-bilharz.hf.space",
+  "health": {
+    "status": "ok",
+    "scorer": "torch-gpu",
+    "samples": 65,
+    "reviews_persistent": false
+  },
+  "runs": [
+    {
+      "sample": "DT40",
+      "run": 1,
+      "status": 200,
+      "total_s": 42.53,
+      "upload_s": 36.62,
+      "after_upload_s": 5.91,
+      "megabytes": 182.0,
+      "server_analysis_s": 4.7,
+      "scorer": "not reported",
+      "decision": "referred",
+      "confident_tiles": 4,
+      "stored_decision": "referred",
+      "stored_confident_tiles": 4,
+      "matches_stored": true,
+      "upload_number": 1
+    },
+    {
+      "sample": "DT02",
+      "run": 1,
+      "status": 200,
+      "total_s": 82.65,
+      "upload_s": 76.16,
+      "after_upload_s": 6.49,
+      "megabytes": 207.8,
+      "server_analysis_s": 5.04,
+      "scorer": "not reported",
+      "decision": "negative",
+      "confident_tiles": 0,
+      "stored_decision": "negative",
+      "stored_confident_tiles": 0,
+      "matches_stored": true,
+      "upload_number": 2
+    },
+    {
+      "sample": "DT29",
+      "run": 1,
+      "status": 200,
+      "total_s": 54.64,
+      "upload_s": 48.7,
+      "after_upload_s": 5.95,
+      "megabytes": 178.0,
+      "server_analysis_s": 4.31,
+      "scorer": "not reported",
+      "decision": "positive",
+      "confident_tiles": 240,
+      "stored_decision": "positive",
+      "stored_confident_tiles": 241,
+      "matches_stored": true,
+      "upload_number": 3
+    },
+    {
+      "sample": "DT40",
+      "run": 1,
+      "status": 200,
+      "total_s": 107.13,
+      "upload_s": 102.33,
+      "after_upload_s": 4.81,
+      "megabytes": 182.0,
+      "server_analysis_s": 4.07,
+      "scorer": "not reported",
+      "decision": "referred",
+      "confident_tiles": 4,
+      "stored_decision": "referred",
+      "stored_confident_tiles": 4,
+      "matches_stored": true,
+      "upload_number": 4
+    }
+  ],
+  "note": "Four uploads in all: DT40, DT02, DT29, then DT40 again. The live backend did not yet report the scorer per request; /api/health reported torch-gpu throughout.",
+  "environment": {
+    "machine": "arm64",
+    "cpu": "Apple M1",
+    "cores": 8,
+    "ram_gb": 8,
+    "os": "Darwin 26.5",
+    "python": "3.14.7",
+    "client": "httpx 0.28.1"
+  },
+  "measured_at": [
+    "2026-10-27 23:09 CAT",
+    "2026-10-27 23:14 CAT"
+  ]
+}

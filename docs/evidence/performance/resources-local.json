@@ -1,0 +1,25 @@
+{
+  "url": "http://127.0.0.1:8020",
+  "sample": "DT40",
+  "status": 200,
+  "total_s": 35.26,
+  "baseline": {
+    "rss_mb": 87,
+    "cpu_percent": 0.2
+  },
+  "peak_rss_mb": 861,
+  "mean_cpu_percent": 375,
+  "peak_cpu_percent": 445,
+  "samples_every_s": 0.1,
+  "note": "CPU percent is of one core; the machine has 8 cores.",
+  "environment": {
+    "machine": "arm64",
+    "cpu": "Apple M1",
+    "cores": 8,
+    "ram_gb": 8,
+    "os": "Darwin 26.5",
+    "python": "3.14.7",
+    "client": "httpx 0.28.1"
+  },
+  "measured_at": "2026-10-27 22:57 CAT"
+}

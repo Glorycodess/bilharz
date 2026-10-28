@@ -1,0 +1,52 @@
+{
+  "scorer": "onnx-cpu",
+  "tiles_per_sample": 1404,
+  "runs": [
+    {
+      "sample": "DT40",
+      "run": 1,
+      "decode_s": 1.22,
+      "score_s": 39.78
+    },
+    {
+      "sample": "DT40",
+      "run": 2,
+      "decode_s": 1.65,
+      "score_s": 37.38
+    },
+    {
+      "sample": "DT02",
+      "run": 1,
+      "decode_s": 1.29,
+      "score_s": 28.83
+    },
+    {
+      "sample": "DT02",
+      "run": 2,
+      "decode_s": 1.17,
+      "score_s": 30.38
+    },
+    {
+      "sample": "DT29",
+      "run": 1,
+      "decode_s": 1.17,
+      "score_s": 30.83
+    },
+    {
+      "sample": "DT29",
+      "run": 2,
+      "decode_s": 1.22,
+      "score_s": 31.25
+    }
+  ],
+  "environment": {
+    "machine": "arm64",
+    "cpu": "Apple M1",
+    "cores": 8,
+    "ram_gb": 8,
+    "os": "Darwin 26.5",
+    "python": "3.14.7",
+    "client": "httpx 0.28.1"
+  },
+  "measured_at": "2026-10-27 23:03 CAT"
+}

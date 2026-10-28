@@ -1,0 +1,91 @@
+{
+  "url": "http://127.0.0.1:8020",
+  "concurrent_uploads": {
+    "uploads": 4,
+    "statuses": [
+      200,
+      429,
+      429,
+      429
+    ],
+    "refused_seconds": [
+      0.02,
+      0.11,
+      0.19
+    ],
+    "analysed_seconds": [
+      32.1
+    ],
+    "next_upload_status": 200,
+    "passed": true
+  },
+  "burst": {
+    "requests": 200,
+    "succeeded": 200,
+    "success_rate": 100.0,
+    "failures": [],
+    "wall_s": 0.34,
+    "latency": {
+      "n": 200,
+      "p50_ms": 272.74,
+      "p95_ms": 286.27,
+      "mean_ms": 269.62,
+      "max_ms": 291.22
+    }
+  },
+  "rejected_uploads": [
+    {
+      "case": "oversized file (16 MB)",
+      "expected": 413,
+      "status": 413,
+      "detail": "Image 1 is larger than 15 MB.",
+      "seconds": 0.02,
+      "lock_free_after": true,
+      "passed": true
+    },
+    {
+      "case": "PNG renamed .jpg",
+      "expected": 415,
+      "status": 415,
+      "detail": "Image 117 is not a JPEG.",
+      "seconds": 0.16,
+      "lock_free_after": true,
+      "passed": true
+    },
+    {
+      "case": "116 images instead of 117",
+      "expected": 422,
+      "status": 422,
+      "detail": "Expected exactly 117 images in the 'files' field; received 116.",
+      "seconds": 0.11,
+      "lock_free_after": true,
+      "passed": true
+    },
+    {
+      "case": "stalled upload (half the body, then nothing)",
+      "expected": 408,
+      "status": 408,
+      "detail": "Upload took too long. Please try again.",
+      "seconds": 120.03,
+      "lock_free_after": true,
+      "passed": true
+    },
+    {
+      "case": "full upload afterwards",
+      "expected": 200,
+      "status": 200,
+      "seconds": 27.62,
+      "passed": true
+    }
+  ],
+  "environment": {
+    "machine": "arm64",
+    "cpu": "Apple M1",
+    "cores": 8,
+    "ram_gb": 8,
+    "os": "Darwin 26.5",
+    "python": "3.14.7",
+    "client": "httpx 0.28.1"
+  },
+  "measured_at": "2026-10-27 23:08 CAT"
+}

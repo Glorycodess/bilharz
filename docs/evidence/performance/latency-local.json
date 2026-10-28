@@ -1,0 +1,39 @@
+{
+  "url": "http://127.0.0.1:8020",
+  "requests_per_endpoint": 200,
+  "sequential": true,
+  "keep_alive": true,
+  "endpoints": {
+    "/api/samples": {
+      "n": 200,
+      "p50_ms": 1.07,
+      "p95_ms": 1.2,
+      "mean_ms": 1.1,
+      "max_ms": 1.76
+    },
+    "/api/samples/DT40": {
+      "n": 200,
+      "p50_ms": 0.86,
+      "p95_ms": 0.97,
+      "mean_ms": 0.88,
+      "max_ms": 1.24
+    },
+    "/api/tiles/DT40/1.jpg": {
+      "n": 200,
+      "p50_ms": 0.63,
+      "p95_ms": 0.7,
+      "mean_ms": 0.64,
+      "max_ms": 0.97
+    }
+  },
+  "environment": {
+    "machine": "arm64",
+    "cpu": "Apple M1",
+    "cores": 8,
+    "ram_gb": 8,
+    "os": "Darwin 26.5",
+    "python": "3.14.7",
+    "client": "httpx 0.28.1"
+  },
+  "measured_at": "2026-10-27 23:03 CAT"
+}

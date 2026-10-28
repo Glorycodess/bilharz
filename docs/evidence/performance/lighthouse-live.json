@@ -1,0 +1,131 @@
+{
+  "runs": [
+    {
+      "mode": "desktop",
+      "page": "landing",
+      "url": "https://iamglory-bilharz.hf.space/",
+      "performance": 80,
+      "accessibility": 100,
+      "best_practices": 100,
+      "fcp_s": 0.56,
+      "lcp_s": 0.56,
+      "tbt_ms": 0,
+      "cls": 0.324,
+      "below_90": {
+        "accessibility": [],
+        "best-practices": []
+      },
+      "lighthouse": "13.5.0",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+      "throttling": "simulate",
+      "form_factor": "desktop",
+      "fetched_at": "2026-10-27T21:29:30.968Z"
+    },
+    {
+      "mode": "desktop",
+      "page": "queue",
+      "url": "https://iamglory-bilharz.hf.space/queue",
+      "performance": 95,
+      "accessibility": 100,
+      "best_practices": 100,
+      "fcp_s": 0.56,
+      "lcp_s": 0.68,
+      "tbt_ms": 0,
+      "cls": 0.002,
+      "below_90": {
+        "accessibility": [],
+        "best-practices": []
+      },
+      "lighthouse": "13.5.0",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+      "throttling": "simulate",
+      "form_factor": "desktop",
+      "fetched_at": "2026-10-27T21:29:47.089Z"
+    },
+    {
+      "mode": "desktop",
+      "page": "review",
+      "url": "https://iamglory-bilharz.hf.space/review/DT40",
+      "performance": 82,
+      "accessibility": 100,
+      "best_practices": 100,
+      "fcp_s": 1.35,
+      "lcp_s": 1.47,
+      "tbt_ms": 0,
+      "cls": 0.002,
+      "below_90": {
+        "accessibility": [],
+        "best-practices": []
+      },
+      "lighthouse": "13.5.0",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+      "throttling": "simulate",
+      "form_factor": "desktop",
+      "fetched_at": "2026-10-27T21:30:02.956Z"
+    },
+    {
+      "mode": "mobile",
+      "page": "landing",
+      "url": "https://iamglory-bilharz.hf.space/",
+      "performance": 85,
+      "accessibility": 100,
+      "best_practices": 100,
+      "fcp_s": 2.62,
+      "lcp_s": 2.62,
+      "tbt_ms": 15,
+      "cls": 0.001,
+      "below_90": {
+        "accessibility": [],
+        "best-practices": []
+      },
+      "lighthouse": "13.5.0",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+      "throttling": "simulate",
+      "form_factor": "mobile",
+      "fetched_at": "2026-10-27T21:30:25.702Z"
+    },
+    {
+      "mode": "mobile",
+      "page": "queue",
+      "url": "https://iamglory-bilharz.hf.space/queue",
+      "performance": 85,
+      "accessibility": 100,
+      "best_practices": 100,
+      "fcp_s": 2.64,
+      "lcp_s": 3.24,
+      "tbt_ms": 7,
+      "cls": 0,
+      "below_90": {
+        "accessibility": [],
+        "best-practices": []
+      },
+      "lighthouse": "13.5.0",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+      "throttling": "simulate",
+      "form_factor": "mobile",
+      "fetched_at": "2026-10-27T21:30:43.698Z"
+    },
+    {
+      "mode": "mobile",
+      "page": "review",
+      "url": "https://iamglory-bilharz.hf.space/review/DT40",
+      "performance": 83,
+      "accessibility": 100,
+      "best_practices": 100,
+      "fcp_s": 2.72,
+      "lcp_s": 3.47,
+      "tbt_ms": 53,
+      "cls": 0,
+      "below_90": {
+        "accessibility": [],
+        "best-practices": []
+      },
+      "lighthouse": "13.5.0",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+      "throttling": "simulate",
+      "form_factor": "mobile",
+      "fetched_at": "2026-10-27T21:31:02.188Z"
+    }
+  ],
+  "note": "Lighthouse 13.5.0 run with npx against the live site; desktop uses --preset=desktop, mobile uses Lighthouse's default mobile emulation and simulated throttling."
+}
