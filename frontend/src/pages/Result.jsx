@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { TILES_PER_IMAGE, getConfig, getSample, isReviewed } from '../api.js'
 import { pending, useApi } from '../useApi.js'
-import { formatCount, formatTime, tilesLookLikeEggs } from '../format.js'
+import { VERDICT_WORDS, formatCount, formatTime, tilesLookLikeEggs } from '../format.js'
 import Button from '../components/Button.jsx'
 import DecisionScale from '../components/DecisionScale.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
@@ -189,11 +189,10 @@ function ResultView({ sample, config }) {
 
 // The technician's current verdict: the latest version of this sample's review.
 function ReviewerVerdict({ id, review, count }) {
-  const word = review.verdict === 'infected' ? 'Infected' : 'Healthy'
   return (
     <div className="result__verdict">
       <p className="result__verdict-line">
-        <VerdictMark verdict={review.verdict}>Reviewer verdict: {word}</VerdictMark>
+        <VerdictMark verdict={review.verdict}>Reviewer verdict: {VERDICT_WORDS[review.verdict]}</VerdictMark>
         <time className="muted" dateTime={review.createdAt}>
           {formatTime(review.createdAt)}
         </time>

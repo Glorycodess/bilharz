@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { countWaiting, getConfig, getPerformance, getQueue, isReviewed, isWaiting } from '../api.js'
 import { pending, useApi } from '../useApi.js'
+import { VERDICT_WORDS } from '../format.js'
 import OutcomeMark from '../components/OutcomeMark.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
+import SearchField from '../components/SearchField.jsx'
 import Toolbar from '../components/Toolbar.jsx'
 import VerdictMark from '../components/VerdictMark.jsx'
-import { SearchIcon } from '../components/Icons.jsx'
 import './Queue.css'
 
 // Referred means still waiting: a referred sample moves to Reviewed once a
@@ -69,22 +70,7 @@ export default function Queue() {
             ))}
           </div>
         }
-        end={
-          <div className="queue__search">
-            <label className="visually-hidden" htmlFor="queue-search">
-              Find a sample
-            </label>
-            <SearchIcon className="queue__search-icon" />
-            <input
-              id="queue-search"
-              className="input queue__search-input"
-              type="search"
-              placeholder="Find a sample"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        }
+        end={<SearchField id="queue-search" value={search} onChange={setSearch} />}
       />
 
       <div className="queue__table-wrap" tabIndex={0} role="region" aria-label="Samples">
@@ -106,9 +92,7 @@ export default function Queue() {
             {rows.map((s) => {
               const referred = s.decision === 'referred'
               const status = isReviewed(s) ? (
-                <VerdictMark verdict={s.review.verdict}>
-                  Reviewed · {s.review.verdict === 'infected' ? 'Infected' : 'Healthy'}
-                </VerdictMark>
+                <VerdictMark verdict={s.review.verdict}>Reviewed · {VERDICT_WORDS[s.review.verdict]}</VerdictMark>
               ) : isWaiting(s) ? (
                 'Waiting for review'
               ) : (

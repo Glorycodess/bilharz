@@ -1,3 +1,7 @@
+// The words for outcomes and verdicts, wherever they are shown.
+export const OUTCOME_WORDS = { negative: 'Negative', referred: 'Referred', positive: 'Positive' }
+export const VERDICT_WORDS = { infected: 'Infected', healthy: 'Healthy' }
+
 export function formatCount(n) {
   return n.toLocaleString('en-US')
 }
@@ -17,13 +21,18 @@ export function ruleText({ tileThreshold, clearBelow, flagAbove }) {
   return `A tile counts if it scores above ${tileThreshold}. ${negative}: negative. More than ${flagAbove}: positive.`
 }
 
-// A review time in the reader's time zone, e.g. "26 Oct, 15:07".
-export function formatTime(iso) {
+// A date and time in the reader's time zone; '' for an invalid date.
+function dayAndTime(iso, withYear) {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  const day = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  const day = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(withYear && { year: 'numeric' }) })
   const time = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   return `${day}, ${time}`
+}
+
+// A review time, e.g. "26 Oct, 15:07".
+export function formatTime(iso) {
+  return dayAndTime(iso, false)
 }
 
 // "just now", "5 minutes ago", "2 hours ago", "yesterday", "3 days ago", or a date.
@@ -40,10 +49,7 @@ export function formatRelative(iso, now = Date.now()) {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// The exact local date and time, e.g. "26 Oct 2026, 15:07".
+// The exact date and time, e.g. "26 Oct 2026, 15:07".
 export function formatFull(iso) {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ''
-  const day = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-  return `${day}, ${date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+  return dayAndTime(iso, true)
 }

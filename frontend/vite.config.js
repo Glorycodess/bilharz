@@ -21,4 +21,11 @@ export default defineConfig({
   plugins: [react()],
   server: { proxy: { '/api': api } },
   preview: { proxy: { '/api': api } },
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.{js,jsx}'],
+    setupFiles: ['./src/test/setup.js'],
+    restoreMocks: true,
+    unstubGlobals: true,
+  },
 })

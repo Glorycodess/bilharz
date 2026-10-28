@@ -8,9 +8,9 @@ import OutcomeMark from '../components/OutcomeMark.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
 import ReviewCodeGate from '../components/ReviewCodeGate.jsx'
+import SearchField from '../components/SearchField.jsx'
 import Toolbar from '../components/Toolbar.jsx'
 import VerdictMark from '../components/VerdictMark.jsx'
-import { SearchIcon } from '../components/Icons.jsx'
 import './Queue.css'
 import './Reviews.css'
 
@@ -108,20 +108,7 @@ function ReviewsTable() {
             }
             end={
               <>
-                <div className="queue__search">
-                  <label className="visually-hidden" htmlFor="reviews-search">
-                    Find a sample
-                  </label>
-                  <SearchIcon className="queue__search-icon" />
-                  <input
-                    id="reviews-search"
-                    className="input queue__search-input"
-                    type="search"
-                    placeholder="Find a sample"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
+                <SearchField id="reviews-search" value={search} onChange={setSearch} />
                 <ExportDialog />
               </>
             }

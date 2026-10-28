@@ -177,10 +177,6 @@ function toResult(r) {
 
 // Endpoints ----------------------------------------------------------------
 
-export async function getHealth() {
-  return request('/api/health')
-}
-
 // The default setting's rule, plus every setting by key.
 export async function getConfig() {
   const body = await request('/api/config')

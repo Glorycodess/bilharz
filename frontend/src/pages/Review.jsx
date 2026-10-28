@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getConfig, getQueue, getSample, isWaiting, postReview } from '../api.js'
 import { pending, useApi } from '../useApi.js'
-import { confidentTiles, formatCount, formatTime } from '../format.js'
+import { OUTCOME_WORDS, confidentTiles, formatCount, formatTime } from '../format.js'
 import Button from '../components/Button.jsx'
 import EggGuide from '../components/EggGuide.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
@@ -12,8 +12,6 @@ import ReviewCodeGate from '../components/ReviewCodeGate.jsx'
 import TileCard from '../components/TileCard.jsx'
 import SampleNotFound from './SampleNotFound.jsx'
 import './Review.css'
-
-const WORDS = { negative: 'Negative', referred: 'Referred', positive: 'Positive' }
 
 const CHOICES = [
   { value: 'infected', label: 'Infected', hint: 'I can see at least one egg', outcome: 'positive' },
@@ -103,7 +101,7 @@ function ReviewSample({ id, editing }) {
         summary={
           <>
             <OutcomeMark kind={decision}>
-              {WORDS[decision]} · {confidentTiles(n)}
+              {OUTCOME_WORDS[decision]} · {confidentTiles(n)}
             </OutcomeMark>
             <p className="review__intro">
               The 12 tiles the detector ranked highest, out of {formatCount(tilesScored)}. Look for an oval egg with a
