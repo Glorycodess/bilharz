@@ -12,3 +12,6 @@ api/assets/tiles.zip
 .venv/
 .pytest_cache/
 api/data/
+
+# Real test samples fetched by scripts/fetch_samples.py
+test-data/
