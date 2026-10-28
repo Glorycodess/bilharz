@@ -7,7 +7,7 @@ stores technician reviews.
 
 ## Run it locally
 
-From this folder (`api/`), with Python 3.13 or 3.14:
+From this folder (`api/`), with Python 3.12 to 3.14:
 
 ```sh
 python3 -m venv .venv
@@ -33,8 +33,8 @@ These must be present (they are not in git):
 | Tile manifest | `api/assets/tiles_manifest.json` |
 | Stored tile scores | `results/patient_scores.npz` |
 
-`api/assets/detector.pt` is the same detector for PyTorch, kept for a future GPU
-scorer; it is not used locally.
+`api/assets/detector.pt` is the same detector for PyTorch. It is used only on the
+Hugging Face Space, by the GPU scorer in `deploy/space/app.py`.
 
 ## Endpoints
 
@@ -43,7 +43,7 @@ All under `/api`, JSON, snake_case. `setting` is `safety` (the default) or
 
 | Method | Path | Returns |
 | --- | --- | --- |
-| GET | `/api/health` | `{"status": "ok", "scorer": "onnx-cpu", "samples": 65}` |
+| GET | `/api/health` | `{"status": "ok", "scorer": "onnx-cpu", "samples": 65, "reviews_persistent": true}` |
 | GET | `/api/config` | Both settings, their rules and the default |
 | GET | `/api/samples?setting=` | The queue: `id`, `confident_tiles`, `decision`, `reviewed` per sample |
 | GET | `/api/samples/{id}?setting=` | One sample's result, with its top 12 tiles; 404 if unknown |
@@ -72,8 +72,9 @@ request is aborted with 408 and everything received is discarded. Nothing is
 written to disk or logged, and the images are discarded after the response.
 One analysis runs at a time; a second request gets 429, and the lock is
 released however a request ends. The response matches a stored sample's
-result, with `id: null`, `source: "upload"`, `seconds`, and each top tile as a
-JPEG data URI. Images are named by their position in the upload
+result, with `id: null`, `source: "upload"`, `seconds`, `scorer` (the scorer
+that actually ran: `torch-gpu`, or `onnx-cpu` locally or after a fallback) and
+each top tile as a JPEG data URI. Images are named by their position in the upload
 (`upload_001` … `upload_117`); uploaded filenames are never kept, returned or
 logged.
 
@@ -108,11 +109,10 @@ parameterised. The admin token is compared in constant time and never logged.
 
 ```
 server.py            FastAPI app: routes, CORS, security headers, errors
-app.py               placeholder entry point (the Space entry comes later)
 bilharz/settings.py  paths, origins and limits from the environment
 bilharz/triage.py    the rule: count confident tiles, decide
 bilharz/tiling.py    one image → 12 tiles, exactly as in the notebooks
-bilharz/scoring.py   Scorer interface; OnnxScorer (CPU)
+bilharz/scoring.py   Scorer interface; OnnxScorer (CPU); score_named
 bilharz/samples.py   the 65 stored samples and the tile archive
 bilharz/analysis.py  live analysis of an upload, in memory
 bilharz/security.py  streaming upload reader and JPEG checks

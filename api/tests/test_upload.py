@@ -3,7 +3,9 @@ import asyncio
 import io
 import json
 import re
+import time
 
+import httpx
 import numpy as np
 import pytest
 from PIL import Image
@@ -61,6 +63,29 @@ def test_oversized_request(make_client):
         assert r.status_code == 413
 
 
+def test_oversized_request_without_content_length(make_client):
+    """A client that sends no Content-Length is still stopped once the body passes the limit."""
+    with make_client(expected_files=3, max_request_bytes=2000) as c:
+        body = multipart_body([jpeg(200, 200, quality=100)] * 3)
+        assert len(body) > 2000
+        status, detail = post_raw(c.app, [body[i : i + 500] for i in range(0, len(body), 500)], then="disconnect")
+        assert status == 413
+        assert detail["detail"].startswith("The upload is larger than")
+        assert not c.app.state.analysis_lock.locked()
+
+
+def test_corrupt_image_data_is_422(make_client):
+    """A JPEG whose header is valid but whose image data is cut off passes the
+    format check and then fails to decode: 422, naming only its position."""
+    whole = jpeg(512, 384, colour=(90, 120, 60), quality=95)
+    broken = whole[: len(whole) // 2]
+    with make_client(expected_files=2) as c:
+        r = c.post("/api/analyse", files=as_files([jpeg(), broken]))
+        assert r.status_code == 422
+        assert r.json() == {"detail": "Image 2 could not be decoded."}
+        assert not c.app.state.analysis_lock.locked()
+
+
 def test_oversized_dimensions(make_client):
     with make_client(expected_files=1, max_image_side=100) as c:
         r = c.post("/api/analyse", files=as_files([jpeg(120, 80)]))
@@ -99,6 +124,7 @@ def test_full_analysis(client):
     assert body["setting"] == "safety" and body["tiles_scored"] == 1404
     assert body["decision"] in {"negative", "referred", "positive"}
     assert isinstance(body["seconds"], float)
+    assert body["scorer"] == "onnx-cpu"
     assert len(body["top_tiles"]) == 12
     first = body["top_tiles"][0]
     assert first["url"].startswith("data:image/jpeg;base64,")
@@ -211,7 +237,9 @@ def test_lock_released_after_disconnect(make_client):
 
 
 def test_lock_released_after_validation_errors(make_client):
-    with make_client(expected_files=3) as c:
+    with make_client(expected_files=3, max_file_bytes=2000) as c:
+        assert c.post("/api/analyse", files=as_files([jpeg(400, 400, quality=100)] * 3)).status_code == 413
+        assert not c.app.state.analysis_lock.locked()
         assert c.post("/api/analyse", files=as_files([jpeg()])).status_code == 422
         assert not c.app.state.analysis_lock.locked()
         assert c.post("/api/analyse", files=as_files([jpeg(), png(), jpeg()])).status_code == 415
@@ -236,6 +264,29 @@ def test_lock_released_after_scoring_error(make_client, monkeypatch):
         assert c.post("/api/analyse", files=as_files([jpeg()] * 3)).status_code == 200
 
 
+def test_concurrent_uploads_one_runs_the_others_get_429(make_client, monkeypatch):
+    """Real simultaneous requests, not a faked lock: one is analysed, the rest are refused."""
+
+    class Slow:
+        name = "slow"
+
+        def score(self, tiles):
+            time.sleep(0.5)
+            return np.zeros(len(tiles), dtype=np.float32)
+
+    async def post_all(app, n):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            return await asyncio.gather(*(client.post("/api/analyse", files=as_files([jpeg()] * 3)) for _ in range(n)))
+
+    with make_client(expected_files=3) as c:
+        monkeypatch.setattr(c.app.state, "scorer", Slow())
+        responses = asyncio.run(post_all(c.app, 4))
+        assert sorted(r.status_code for r in responses) == [200, 429, 429, 429]
+        assert not c.app.state.analysis_lock.locked()
+        assert c.post("/api/analyse", files=as_files([jpeg()] * 3)).status_code == 200
+
+
 def test_whole_sample_scorer_is_called_once(make_client, monkeypatch):
     """A GPU scorer reserves a GPU per call, so it gets every tile in one call."""
     calls = []
@@ -253,6 +304,26 @@ def test_whole_sample_scorer_is_called_once(make_client, monkeypatch):
         r = c.post("/api/analyse", files=as_files([jpeg()] * 20))
         assert r.status_code == 200, r.text
     assert calls == [20 * 12]
+
+
+def test_scorer_reports_its_fallback(make_client, monkeypatch):
+    """A scorer with a fallback (the Space's GPU scorer) reports which one scored the upload."""
+
+    class FellBack:
+        name = "torch-gpu"
+        whole_sample = True
+
+        def score_named(self, tiles):
+            return np.zeros(len(tiles), dtype=np.float32), "onnx-cpu"
+
+        def score(self, tiles):
+            return self.score_named(tiles)[0]
+
+    with make_client(expected_files=3) as c:
+        monkeypatch.setattr(c.app.state, "scorer", FellBack())
+        r = c.post("/api/analyse", files=as_files([jpeg()] * 3))
+        assert r.status_code == 200, r.text
+        assert r.json()["scorer"] == "onnx-cpu"
 
 
 def test_importing_server_builds_no_app():

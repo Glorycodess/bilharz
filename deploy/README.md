@@ -40,7 +40,8 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 
 Without ZeroGPU, uploads are scored with ONNX on the CPU (`/api/health` reports
-`"scorer": "onnx-cpu"`).
+`"scorer": "onnx-cpu"`). On the Space, each analysis response's `scorer` field
+says which one scored that upload: `torch-gpu`, or `onnx-cpu` after a fallback.
 
 ## Settings on the Space
 
@@ -50,6 +51,7 @@ Set these in the Space's **Settings → Variables and secrets**:
 | --- | --- | --- |
 | `BILHARZ_ADMIN_TOKEN` | Secret | Enables CSV export and deleting reviews |
 | `BILHARZ_REVIEW_CODE` | Secret, optional | Requires a code for reviews |
+| `BILHARZ_UPLOAD_TIMEOUT_SECONDS` | Variable, optional | Time allowed for an upload to arrive (default 120); a sample is about 180 MB |
 
 Reviews are stored in SQLite on the Space's disk, which is ephemeral: they are
 lost when the Space restarts or sleeps. `/api/health` reports

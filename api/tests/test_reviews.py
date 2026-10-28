@@ -70,10 +70,10 @@ def test_delete_disabled_without_configured_token(make_client):
 
 def test_no_personal_columns(make_client):
     import sqlite3
+    from contextlib import closing
 
-    with make_client() as c:
-        db = c.app.state.settings.reviews_db
-        cols = [row[1] for row in sqlite3.connect(db).execute("PRAGMA table_info(reviews)")]
+    with make_client() as c, closing(sqlite3.connect(c.app.state.settings.reviews_db)) as db:
+        cols = [row[1] for row in db.execute("PRAGMA table_info(reviews)")]
     assert cols == ["id", "sample_id", "verdict", "note", "tester_code", "created_at", "supersedes"]
 
 

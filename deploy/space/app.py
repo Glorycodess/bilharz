@@ -96,13 +96,17 @@ class TorchGpuScorer:
     def __init__(self, fallback: OnnxScorer):
         self.fallback = fallback
 
-    def score(self, tiles: np.ndarray) -> np.ndarray:
+    def score_named(self, tiles: np.ndarray) -> tuple[np.ndarray, str]:
+        """The scores, and which scorer produced them (reported per upload)."""
         try:
-            return score_on_gpu(tiles)
+            return score_on_gpu(tiles), self.name
         except Exception as error:  # quota exhausted, no GPU free, worker error, ...
             # Log the kind of error only: never data from the upload.
             log.warning("GPU scoring failed (%s); using ONNX on the CPU for this request", type(error).__name__)
-            return self.fallback.score(tiles)
+            return self.fallback.score(tiles), self.fallback.name
+
+    def score(self, tiles: np.ndarray) -> np.ndarray:
+        return self.score_named(tiles)[0]
 
 
 def make_scorer(settings):

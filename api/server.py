@@ -59,6 +59,8 @@ class SecurityHeaders:
 
 
 def create_app(settings: Settings | None = None, scorer: Scorer | None = None) -> FastAPI:
+    """Build the API. Settings default to the environment's, and the scorer to
+    the first available one; the Space passes its GPU scorer, tests pass stubs."""
     settings = settings or load_settings()
     configure_pillow(settings)
 

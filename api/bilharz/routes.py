@@ -71,6 +71,7 @@ def _known(request: Request, sample_id: str) -> None:
 
 @router.get("/health", response_model=schemas.Health)
 def health(request: Request):
+    """Liveness, the active scorer, and whether reviews survive a restart."""
     state = _state(request)
     return dict(
         status="ok",
@@ -82,6 +83,7 @@ def health(request: Request):
 
 @router.get("/config", response_model=schemas.ConfigOut)
 def config(request: Request):
+    """Both decision settings with their rules, the default, and whether reviews need a code."""
     triage = _state(request).triage
     return dict(
         default=triage.default,
@@ -95,6 +97,7 @@ def config(request: Request):
 
 @router.get("/samples", response_model=schemas.Queue)
 def queue(request: Request, setting: str | None = None):
+    """Every stored sample with its confident-tile count, decision and latest review."""
     rule = _rule(request, setting)
     state = _state(request)
     latest = state.reviews.latest()
@@ -156,6 +159,7 @@ def sample(
     responses={200: {"content": {"image/jpeg": {}}}, 404: {"description": "Unknown sample or rank"}},
 )
 def tile(request: Request, sample_id: str, rank: str):
+    """One of a stored sample's 12 highest-scoring tiles, as a JPEG."""
     state = _state(request)
     # The archive member comes from the manifest, never from the request path.
     member = state.samples.tile_file(sample_id, int(rank)) if RANK.match(rank) else None
@@ -241,9 +245,10 @@ def add_review(request: Request, sample_id: str, review: schemas.ReviewIn):
 def _reviews_with_decisions(
     request: Request, view: str, verdict: str | None, sample_id: str | None
 ) -> list[dict]:
-    if sample_id is not None and sample_id not in _state(request).samples:
-        raise HTTPException(422, "Unknown sample.")
+    """Review rows for the list and the CSV, each with Bilharz's decision (default setting)."""
     state = _state(request)
+    if sample_id is not None and sample_id not in state.samples:
+        raise HTTPException(422, "Unknown sample.")
     rule = state.triage.rule(None)
     if view == "current":
         rows = state.reviews.current(verdict=verdict, sample_id=sample_id)
@@ -337,4 +342,5 @@ def export_reviews(
     responses={403: {"description": "Missing or wrong admin token"}},
 )
 def clear_reviews(request: Request):
+    """Delete every review. Needs the admin token in X-Admin-Token."""
     return dict(deleted=_state(request).reviews.clear())

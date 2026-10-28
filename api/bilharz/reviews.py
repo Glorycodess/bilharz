@@ -37,6 +37,8 @@ class ReviewConflict(Exception):
 
 
 class ReviewStore:
+    """Reviews in one SQLite file; the table is created, or migrated, on start."""
+
     def __init__(self, path: Path):
         self._path = path
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -68,6 +70,8 @@ class ReviewStore:
         tester_code: str | None,
         supersedes: int | None = None,
     ) -> dict:
+        """Insert a review, or a new version of the current one (`supersedes`).
+        Raises ReviewNotFound or ReviewConflict; returns the stored row."""
         created = datetime.now(timezone.utc).isoformat(timespec="seconds")
         with self._connect() as db:
             # Hold the write lock from the check to the insert, so two edits of
@@ -120,6 +124,7 @@ class ReviewStore:
         return (rows[0], rows[0]["version_count"]) if rows else (None, 0)
 
     def version_counts(self) -> dict[str, int]:
+        """How many versions each reviewed sample's review has."""
         with self._connect() as db:
             return dict(db.execute("SELECT sample_id, COUNT(*) FROM reviews GROUP BY sample_id"))
 
@@ -136,5 +141,6 @@ class ReviewStore:
         return (" WHERE " + " AND ".join(where) if where else ""), params
 
     def clear(self) -> int:
+        """Delete every review; returns how many were deleted."""
         with self._connect() as db:
             return db.execute("DELETE FROM reviews").rowcount

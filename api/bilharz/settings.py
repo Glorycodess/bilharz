@@ -23,6 +23,8 @@ def _int(name: str, default: int) -> int:
 
 @dataclass(frozen=True)
 class Settings:
+    """Read once at start-up by load_settings and passed to whatever needs it."""
+
     model_path: Path
     config_path: Path
     tiles_zip: Path
@@ -46,6 +48,7 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    """Settings from BILHARZ_* environment variables, with local defaults."""
     assets = _path("BILHARZ_ASSETS_DIR", API_DIR / "assets")
     origins = os.environ.get("BILHARZ_ALLOWED_ORIGINS", "http://localhost:5173")
     return Settings(

@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from PIL import Image
 
-from .scoring import Scorer
+from .scoring import Scorer, score_named
 from .security import Upload, UploadError
 from .tiling import TILES_PER_IMAGE, tiles_of
 from .triage import Rule, count_confident, decide
@@ -22,6 +22,7 @@ def _image_name(position: int) -> str:
 
 
 def _data_uri(tile: np.ndarray) -> str:
+    """A tile as a JPEG data URI: upload previews are returned inline, never stored."""
     buf = io.BytesIO()
     Image.fromarray(tile).save(buf, format="JPEG", quality=85)
     return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
@@ -43,11 +44,13 @@ def analyse(uploads: list[Upload], scorer: Scorer, rule: Rule) -> dict:
     # A scorer with `whole_sample` (the GPU one) gets every tile in one call,
     # since each call reserves a GPU; the CPU scorer works through groups.
     group = len(numbered) if getattr(scorer, "whole_sample", False) else IMAGES_PER_BATCH
-    scores = []
+    scores, used = [], set()
     with ThreadPoolExecutor(max_workers=4) as pool:
         for i in range(0, len(numbered), group):
             tiles = np.concatenate(list(pool.map(_decode, numbered[i : i + group])))
-            scores.append(scorer.score(tiles))
+            group_scores, name = score_named(scorer, tiles)
+            scores.append(group_scores)
+            used.add(name)
     scores = np.concatenate(scores)
 
     count = count_confident(scores, rule)
@@ -80,4 +83,5 @@ def analyse(uploads: list[Upload], scorer: Scorer, rule: Rule) -> dict:
         highest_tile=dict(image=names[best // TILES_PER_IMAGE], tile=best % TILES_PER_IMAGE + 1),
         top_tiles=top,
         seconds=round(time.perf_counter() - start, 2),
+        scorer="+".join(sorted(used)),
     )

@@ -3,7 +3,8 @@
 Scorers are tried in order of preference and the first available one is used.
 The Hugging Face Space passes its own TorchGpuScorer (detector.pt on ZeroGPU,
 see deploy/space/app.py) to create_app, with ONNX on the CPU as its fallback.
-A scorer may set `whole_sample = True` to be called once per upload.
+A scorer may set `whole_sample = True` to be called once per upload, and a
+scorer with a fallback implements `score_named` to report which one ran.
 """
 from typing import ClassVar, Protocol
 
@@ -13,12 +14,16 @@ from .settings import Settings
 
 
 class Scorer(Protocol):
+    """Anything with a `name` and a `score` method; see the module docstring."""
+
     name: str
 
     def score(self, tiles: np.ndarray) -> np.ndarray: ...
 
 
 class OnnxScorer:
+    """The exported detector (detector.onnx) on the CPU, in batches."""
+
     name: ClassVar[str] = "onnx-cpu"
 
     def __init__(self, model_path, batch_size: int = 64):
@@ -53,7 +58,15 @@ class OnnxScorer:
 SCORERS = [OnnxScorer]
 
 
+def score_named(scorer: Scorer, tiles: np.ndarray) -> tuple[np.ndarray, str]:
+    """The scores, and the name of the scorer that actually produced them."""
+    if hasattr(scorer, "score_named"):
+        return scorer.score_named(tiles)
+    return scorer.score(tiles), scorer.name
+
+
 def load_scorer(settings: Settings) -> Scorer:
+    """The first available scorer in SCORERS."""
     for cls in SCORERS:
         if cls.available():
             return cls.from_settings(settings)

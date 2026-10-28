@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Decision = Literal["negative", "positive", "referred"]
+from .triage import Decision
 
 
 class Health(BaseModel):
@@ -85,6 +85,7 @@ class SampleResult(BaseModel):
 
 class AnalysisResult(SampleResult):
     seconds: float
+    scorer: str = Field(description="The scorer that scored this upload, e.g. torch-gpu, or onnx-cpu after a fallback")
 
 
 class ReviewIn(BaseModel):

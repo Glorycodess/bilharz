@@ -11,12 +11,15 @@ Decision = Literal["negative", "positive", "referred"]
 
 @dataclass(frozen=True)
 class Rule:
+    """One decision setting: the tile threshold and the two count cut-offs."""
+
     name: str
     tile_threshold: float
     clear_below: int
     flag_above: int
 
     def describe(self) -> str:
+        """The rule in one sentence, for /api/config."""
         return (
             f"A tile is confident if it scores above {self.tile_threshold}. "
             f"Fewer than {self.clear_below} confident tiles: negative. "
@@ -26,6 +29,8 @@ class Rule:
 
 @dataclass(frozen=True)
 class TriageConfig:
+    """Every setting by name, and which one is the default."""
+
     default: str
     rules: dict[str, Rule]
 
@@ -35,6 +40,7 @@ class TriageConfig:
 
 
 def load_config(path: Path) -> TriageConfig:
+    """Read triage_config.json, as written by notebook 05."""
     raw = json.loads(path.read_text())
     rules = {
         name: Rule(
@@ -56,6 +62,7 @@ def count_confident(scores: np.ndarray, rule: Rule) -> int:
 
 
 def decide(count: int, rule: Rule) -> Decision:
+    """Negative below `clear_below`, positive above `flag_above`, referred in between."""
     if count < rule.clear_below:
         return "negative"
     if count > rule.flag_above:

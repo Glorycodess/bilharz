@@ -17,6 +17,8 @@ from .triage import Rule, count_confident
 
 @dataclass(frozen=True)
 class TopTile:
+    """One of a sample's 12 highest-scoring tiles, from the manifest."""
+
     rank: int
     score: float
     image: str
@@ -25,6 +27,8 @@ class TopTile:
 
 
 class SampleStore:
+    """Stored tile scores and top tiles of the 65 samples, read once at start-up."""
+
     def __init__(self, scores_path: Path, manifest_path: Path):
         with np.load(scores_path) as z:
             self._scores = np.asarray(z["S"], dtype=np.float32)  # (samples, images, 12)
@@ -60,6 +64,7 @@ class SampleStore:
         return self._scores[self._index[sid]].reshape(-1)
 
     def count(self, sid: str, rule: Rule) -> int:
+        """Confident tiles under `rule`."""
         return count_confident(self.scores(sid), rule)
 
     def highest(self, sid: str) -> tuple[float, str, int]:
