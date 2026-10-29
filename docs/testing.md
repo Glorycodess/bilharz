@@ -17,13 +17,13 @@ the same machine over a home connection.
 | Frontend unit and component | Vitest, Testing Library | 38 passed |
 | End to end | Playwright (Chromium) | 8 passed |
 | API contract | `npm run check:api` | All 5 endpoints match, with and without a review in the database |
-| Model validation | notebooks 04 and 05 | Nested cross-validation; ONNX reproduces all 65 decisions |
+| Model validation | notebooks 04 and 05, `scripts/bootstrap_intervals.py` | Nested cross-validation reproduced; bootstrap intervals beside Clopper–Pearson; ONNX reproduces all 65 decisions |
 | Real samples | `scripts/fetch_samples.py`, `/api/analyse` | 3 of 3 decisions match, locally and live |
 | Security and input validation | pytest, `scripts/stress_backend.py` | Every rejected upload gets its documented status; the lock is always released |
 | Compatibility | Playwright: Chromium, Firefox, WebKit × 3 sizes × 8 pages | Local 72 of 72; live 69 of 72 (WebKit, one page, see below) |
 | Performance | `scripts/measure_backend.py`, Lighthouse, `measure-loading.mjs` | Analysis 29–34 s on CPU, 4–5 s on the live GPU; API p95 under 1.3 ms |
 | Stress | `scripts/stress_backend.py` | 1 of 4 simultaneous uploads analysed, 3 refused; 200 of 200 concurrent reads served |
-| Coverage | pytest-cov | 98% of backend statements |
+| Coverage | pytest-cov | 96% of backend statements |
 
 ## Strategies
 
@@ -124,12 +124,82 @@ that each field it uses is present with the right type.
   Clopper–Pearson intervals over patients. Triage: sensitivity 96.9%
   (83.8–99.9%), specificity 96.7% (83.8–99.9%), 45.8% of samples reviewed
   (33.4–58.7%); with the safety margin, 100% (at least 89.1%), 96.5% and 72.1%.
-  Referral by confidence beat random referral in 20 of 20 repeats.
+  Referral by confidence beat random referral in 20 of 20 repeats. Bootstrap
+  intervals for the same figures are [below](#bootstrap-intervals).
 - **Notebook 05: ONNX equivalence.** The exported model matches the PyTorch
   original to within 0.000002 on 600 tiles. End to end on all 65 patients, scored
   on a CPU from the original images as the backend does it, the confident-tile
   count changed for 3 patients at threshold 0.95 (by one tile each) and 2 at
   0.99, and **no decision changed** under either setting.
+
+### Bootstrap intervals
+
+**Why.** Objective 3 of the proposal promised non-parametric bootstrapping, and
+AURC has no exact interval of its own.
+
+**How.** [`scripts/bootstrap_intervals.py`](../scripts/bootstrap_intervals.py)
+reruns notebook 04's nested cross-validation from `results/patient_scores.npz`:
+the same five confident-tile thresholds, 20 repeats of stratified 5-fold
+cross-validation with `random_state=0`, the triage rule and the safety-margin
+variant, and the logistic confidence used for the risk-coverage curve. It
+first checks that every point estimate and Clopper–Pearson bound of the
+notebook reproduces to the printed decimal, and stops if one does not. Each
+patient's outcome (the share of repeats in which they were decided correctly,
+or referred) is then resampled: 10,000 times, seed 0, patients drawn with
+replacement within each class (32 infected, 33 healthy). The intervals are
+95% percentile intervals. It needs scipy and scikit-learn, pinned in
+`api/requirements-dev.txt`; the results
+are in [`evidence/bootstrap.json`](evidence/bootstrap.json), and a second run
+gives an identical file.
+
+**Result.** Every figure of notebook 04 reproduced: 96.9%, 96.7% and 45.8%
+referred for triage, 100%, 96.5% and 72.1% with the safety margin, and AURC
+0.0946 against 0.2065, better in 20 of 20 repeats. Coverage rate is the share
+decided automatically, one minus the share referred.
+
+| Triage | Estimate | Bootstrap 95% | Clopper–Pearson 95% |
+|---|---|---|---|
+| Sensitivity | 96.9% | 90.6–100% | 83.8–99.9% |
+| Specificity | 96.7% | 90.3–100% | 83.8–99.9% |
+| Coverage rate | 54.2% | 42.8–65.3% | 41.3–66.6% |
+
+| Triage with the safety margin | Estimate | Bootstrap 95% | Clopper–Pearson 95% |
+|---|---|---|---|
+| Sensitivity | 100% | 100–100% (degenerate) | 89.1–100% |
+| Specificity | 96.5% | 90.0–100% | 83.5–99.9% |
+| Coverage rate | 27.9% | 17.4–38.7% | 17.5–40.4% |
+
+| Risk-coverage | AURC | Bootstrap 95% |
+|---|---|---|
+| Referral by confidence | 0.095 | 0.030–0.183 |
+| Referral at random | 0.205 | 0.115–0.304 |
+| Difference | −0.111 | −0.174 to −0.043 |
+
+Confidence had the lower AURC in 99.9% of the resamples. Inside the bootstrap,
+AURC is averaged exactly over every order of tied confidences, and random
+referral is the mean error; the notebook estimates the same quantities with
+random draws, which is why its random AURC is 0.2065 and the exact value 0.2054.
+
+**Where the bootstrap degenerates.** A percentile bootstrap can only resample
+the patients that were observed. With the safety margin, no infected patient
+was missed in any repeat, so every resample also has 100% sensitivity and the
+interval collapses to 100–100%: it says nothing about an infected patient
+fainter than any in the cohort. The same limit narrows the other proportions
+near 100%. Triage misses one infected patient (DT40), and a resample that
+leaves DT40 out has 100% sensitivity, so the bootstrap's upper bound is 100%
+and its lower bound, 90.6%, rests on how often DT40 is drawn; specificity
+behaves the same way. With so few errors among 32 or 33 patients, percentile
+intervals are known to be too narrow. Clopper–Pearson intervals are exact
+binomial intervals and stay informative at 0 or 1 errors (a lower bound of
+89.1% from 32 of 32), so they remain the intervals reported for sensitivity and
+specificity. For coverage rate, where the proportion is far from 0 and 100%,
+the two methods agree within two percentage points. For AURC, which has no
+exact interval, the bootstrap is the interval reported.
+
+The bootstrap resamples outcomes from the fixed cross-validation runs; it does
+not refit the thresholds inside each resample. It therefore measures
+uncertainty from the small cohort, not the variation in which threshold the
+training folds choose, which the spread across repeats in notebook 04 shows.
 
 ### Real samples
 

@@ -1,0 +1,133 @@
+{
+  "method": {
+    "scores": "results/patient_scores.npz",
+    "cross_validation": "20 x 5-fold stratified, random_state=0",
+    "thresholds": [
+      0.9,
+      0.95,
+      0.99,
+      0.995,
+      0.999
+    ],
+    "safety_margin": 2,
+    "outcome_per_patient": "share of the 20 repeats in which the patient was decided correctly, or deferred",
+    "bootstrap": "patients resampled with replacement within each class (32 infected, 33 healthy)",
+    "resamples": 10000,
+    "seed": 0,
+    "interval": "95% percentile",
+    "aurc": "AURC averaged over tied confidences (exact form of the notebook's random tie-breaking); random deferral is the mean error"
+  },
+  "environment": {
+    "python": "3.14.7",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "scikit-learn": "1.9.1"
+  },
+  "results": {
+    "triage": {
+      "sensitivity": {
+        "estimate": 0.96875,
+        "bootstrap_95": [
+          0.90625,
+          1.0
+        ],
+        "clopper_pearson_95": [
+          0.8378290058184884,
+          0.9992091314020475
+        ],
+        "bootstrap_degenerate": false
+      },
+      "specificity": {
+        "estimate": 0.9666666666666667,
+        "bootstrap_95": [
+          0.9030303030303031,
+          1.0
+        ],
+        "clopper_pearson_95": [
+          0.8377109917708332,
+          0.998875208352938
+        ],
+        "bootstrap_degenerate": false
+      },
+      "coverage": {
+        "estimate": 0.5415384615384616,
+        "bootstrap_95": [
+          0.4276923076923077,
+          0.6530769230769231
+        ],
+        "clopper_pearson_95": [
+          0.4133149411211203,
+          0.6658534110342809
+        ],
+        "bootstrap_degenerate": false
+      }
+    },
+    "safety_margin": {
+      "sensitivity": {
+        "estimate": 1.0,
+        "bootstrap_95": [
+          1.0,
+          1.0
+        ],
+        "clopper_pearson_95": [
+          0.8911188393206471,
+          1.0
+        ],
+        "bootstrap_degenerate": true
+      },
+      "specificity": {
+        "estimate": 0.9651515151515152,
+        "bootstrap_95": [
+          0.9,
+          1.0
+        ],
+        "clopper_pearson_95": [
+          0.8353862332975047,
+          0.9986678944413486
+        ],
+        "bootstrap_degenerate": false
+      },
+      "coverage": {
+        "estimate": 0.2792307692307692,
+        "bootstrap_95": [
+          0.17384615384615376,
+          0.3869230769230769
+        ],
+        "clopper_pearson_95": [
+          0.17502984026326848,
+          0.40436419046323896
+        ],
+        "bootstrap_degenerate": false
+      }
+    },
+    "aurc": {
+      "notebook": {
+        "confidence": 0.09462667618897484,
+        "random": 0.2064902526016003,
+        "confidence_wins": 20
+      },
+      "confidence": {
+        "estimate": 0.09462835348737669,
+        "bootstrap_95": [
+          0.030111528277210402,
+          0.18334950083785778
+        ]
+      },
+      "random": {
+        "estimate": 0.2053846153846154,
+        "bootstrap_95": [
+          0.11461538461538462,
+          0.3038461538461538
+        ]
+      },
+      "difference": {
+        "estimate": -0.1107562618972387,
+        "bootstrap_95": [
+          -0.17381608136108312,
+          -0.04305104508700563
+        ],
+        "share_of_resamples_below_zero": 0.9994
+      }
+    }
+  }
+}

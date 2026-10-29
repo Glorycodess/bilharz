@@ -187,6 +187,18 @@ This downloads only those patients' 117 images each from the Zenodo dataset
 `test-data/samples/<ID>/`, which git ignores. The folders can be uploaded on the
 Analyse page as they are.
 
+### Bootstrap intervals
+
+```bash
+api/.venv/bin/python scripts/bootstrap_intervals.py
+```
+
+This reruns notebook 04's nested cross-validation from
+`results/patient_scores.npz`, checks that the notebook's figures reproduce, and
+writes patient-level bootstrap intervals to `docs/evidence/bootstrap.json`
+([docs/testing.md](docs/testing.md#bootstrap-intervals)). It needs scipy and
+scikit-learn, which `requirements-dev.txt` installs.
+
 ### Building the Hugging Face Space
 
 ```bash
@@ -341,7 +353,9 @@ Repeated stratified 5-fold cross-validation, 20 repeats, split by **patient**, s
 all of a patient's tiles fall on the same side of every split. Every threshold any
 system uses is chosen inside the folds. Referred samples are assumed to be read
 correctly by the reviewer, the same assumption behind the full-review baseline.
-Intervals are exact 95% Clopper–Pearson intervals over patients.
+Intervals are exact 95% Clopper–Pearson intervals over patients. A patient-level
+bootstrap of the same results, with AURC intervals, is in
+[docs/testing.md](docs/testing.md#bootstrap-intervals).
 
 ## Results
 
@@ -490,7 +504,7 @@ bilharz/
 ├── figures/      Result figures and the architecture diagram
 ├── docs/         Scope (scope.md), architecture, testing results, and evidence (screenshots, measurements)
 ├── design/       The first design iteration's mockups, mapped to the built screens in design/README.md
-├── scripts/      Fetching real test samples; backend measurements and stress tests
+├── scripts/      Fetching real test samples; backend measurements and stress tests; bootstrap intervals
 └── README.md
 ```
 
