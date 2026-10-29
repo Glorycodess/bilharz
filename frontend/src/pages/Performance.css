@@ -64,6 +64,29 @@
   border-left: 2px solid var(--orange);
 }
 
+.perf__use {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.perf__use-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.perf__use-status:focus {
+  outline: none;
+}
+
+.perf__use-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--orange);
+}
+
 /* Alternatives */
 
 .perf__section {

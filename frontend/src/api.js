@@ -120,6 +120,46 @@ function dataChanged() {
   listeners.forEach((listener) => listener())
 }
 
+// The decision setting chosen in this browser on the Performance page, or null
+// for the server's default. A preference, not personal data, so it is kept in
+// localStorage; where storage is blocked it lasts until the tab reloads.
+const SETTING_KEY = 'bilharz.setting'
+let chosenSetting = readStoredSetting()
+
+function readStoredSetting() {
+  try {
+    return localStorage.getItem(SETTING_KEY)
+  } catch {
+    return null
+  }
+}
+
+function storeSetting(key) {
+  try {
+    if (key) localStorage.setItem(SETTING_KEY, key)
+    else localStorage.removeItem(SETTING_KEY)
+  } catch {
+    // storage blocked: keep the choice in memory only
+  }
+}
+
+// Use `key` for the queue, sample results and new analyses. Reviews don't
+// depend on it: they record a technician's verdict.
+export function chooseSetting(key) {
+  chosenSetting = key
+  storeSetting(key)
+  dataChanged()
+}
+
+// The query string for requests that take a setting. A stored choice the
+// server no longer knows is dropped (getConfig checks it), so the server's
+// default applies.
+async function settingQuery() {
+  if (chosenSetting === null) return ''
+  await getConfig()
+  return chosenSetting === null ? '' : `?setting=${encodeURIComponent(chosenSetting)}`
+}
+
 // Converters ---------------------------------------------------------------
 
 function label(key) {
@@ -177,16 +217,27 @@ function toResult(r) {
 
 // Endpoints ----------------------------------------------------------------
 
-// The default setting's rule, plus every setting by key.
+// The rule of the setting in use (the chosen one, or the server's default),
+// plus every setting by key and which one is the server's default.
 export async function getConfig() {
   const body = await request('/api/config')
   const rules = Object.fromEntries(Object.entries(body.settings).map(([key, r]) => [key, toRule(key, r)]))
-  const current = rules[body.default]
-  return { ...current, setting: current.label, settings: rules, reviewCodeRequired: body.review_code_required }
+  if (chosenSetting !== null && !rules[chosenSetting]) {
+    chosenSetting = null
+    storeSetting(null)
+  }
+  const current = rules[chosenSetting ?? body.default]
+  return {
+    ...current,
+    setting: current.label,
+    defaultKey: body.default,
+    settings: rules,
+    reviewCodeRequired: body.review_code_required,
+  }
 }
 
 export async function getQueue() {
-  const body = await request('/api/samples')
+  const body = await request(`/api/samples${await settingQuery()}`)
   return body.samples.map((s) => ({
     id: s.id,
     confidentTiles: s.confident_tiles,
@@ -199,7 +250,8 @@ export async function getQueue() {
 export async function getSample(id) {
   try {
     // Sent with the review code, if one was entered, so the review's note is included.
-    return toResult(await request(`/api/samples/${encodeURIComponent(id)}`, { headers: reviewHeaders() }))
+    const path = `/api/samples/${encodeURIComponent(id)}${await settingQuery()}`
+    return toResult(await request(path, { headers: reviewHeaders() }))
   } catch (error) {
     if (error.status === 404) return null
     throw error
@@ -261,10 +313,15 @@ export async function postReview(id, { verdict, note, supersedes = null }) {
 // Upload one sample's images. Reports upload progress (0–1), then `onUploaded`
 // once the server has everything and is scoring. Files are sent under neutral
 // names, so their original names never leave the browser.
-export function analyseUpload(files, { onProgress, onUploaded, signal } = {}) {
+export async function analyseUpload(files, { onProgress, onUploaded, signal } = {}) {
+  const query = await settingQuery()
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new ApiError('The upload was cancelled.'))
+      return
+    }
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', '/api/analyse')
+    xhr.open('POST', `/api/analyse${query}`)
     xhr.setRequestHeader('Accept', 'application/json')
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress?.(e.loaded / e.total)

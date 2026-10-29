@@ -1,9 +1,12 @@
-import { useState } from 'react'
-import { getConfig, getPerformance } from '../api.js'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
+import { chooseSetting, getConfig, getPerformance } from '../api.js'
 import { pending, useApi } from '../useApi.js'
 import { ruleText } from '../format.js'
 import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
+import Button from '../components/Button.jsx'
+import { CheckIcon } from '../components/Icons.jsx'
 import StatBlock from '../components/StatBlock.jsx'
 import './Performance.css'
 
@@ -11,6 +14,13 @@ export default function Performance() {
   const performance = useApi(getPerformance)
   const config = useApi(getConfig)
   const [selected, setSelected] = useState(null)
+  const { hash } = useLocation()
+  const loaded = performance.data !== undefined && config.data !== undefined
+
+  // The menu's "Change" link opens this page at the control.
+  useEffect(() => {
+    if (loaded && hash === '#use-setting') document.getElementById('use-setting')?.scrollIntoView({ block: 'center' })
+  }, [loaded, hash])
 
   const waiting = pending(performance, config)
   if (waiting) return <PageState {...waiting} />
@@ -36,7 +46,7 @@ export default function Performance() {
             onClick={() => setSelected(s.key)}
           >
             {s.label}
-            {s.key === config.data.key && ' (default)'}
+            {s.key === config.data.defaultKey && ' (default)'}
           </button>
         ))}
       </div>
@@ -58,6 +68,7 @@ export default function Performance() {
           {rule && <p className="strong">{ruleText(rule)}</p>}
           <p className="muted">{current.note}</p>
         </div>
+        <UseSetting setting={current} inUse={config.data} />
       </section>
 
       <section className="perf__section" aria-labelledby="alt-title">
@@ -109,6 +120,42 @@ export default function Performance() {
         Repeated 5-fold cross-validation over 65 patients from one dataset, with every threshold learned on separate
         patients. Referred samples are assumed read correctly. The Safety setting was designed after one missed
         infection was found and is reported as an extra analysis. Research results, not clinical performance.
+      </p>
+    </div>
+  )
+}
+
+// Makes the setting shown above the one the app uses, in this browser.
+function UseSetting({ setting, inUse }) {
+  const status = useRef(null)
+  const [justChosen, setJustChosen] = useState(false)
+  const active = setting.key === inUse.key
+
+  useEffect(() => {
+    if (justChosen && active) status.current?.focus()
+  }, [justChosen, active])
+
+  return (
+    <div className="perf__use" id="use-setting">
+      {active ? (
+        <p className="perf__use-status strong" ref={status} tabIndex={-1} role="status">
+          <CheckIcon className="perf__use-icon" />
+          {setting.label} is the setting in use in the app.
+        </p>
+      ) : (
+        <Button
+          variant="outline"
+          onClick={() => {
+            setJustChosen(true)
+            chooseSetting(setting.key)
+          }}
+        >
+          Use this setting in the app
+        </Button>
+      )}
+      <p className="muted small">
+        {active ? 'It decides' : `In use now: ${inUse.label}. The setting decides`} the queue, sample results and new
+        analyses in this browser. Reviews are not affected.
       </p>
     </div>
   )

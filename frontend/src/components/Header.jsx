@@ -160,7 +160,7 @@ export default function Header() {
           <p className="sidebar__setting-label">Decision setting</p>
           <p className="sidebar__setting-value">
             <span>{config?.setting ?? 'Safety'}</span>
-            <Link to="/performance" className="text-link sidebar__change">
+            <Link to="/performance#use-setting" className="text-link sidebar__change">
               Change
             </Link>
           </p>

@@ -26,6 +26,45 @@ test('the queue shows the stored decisions', async ({ page }) => {
   expect(await waitingCount(page)).toBe(48)
 })
 
+async function expectQueueCounts(page, referred, negative, positive) {
+  const tab = (name) => page.getByRole('group', { name: 'Filter by decision' }).getByRole('button', { name })
+  await expect(tab(/^Referred/)).toContainText(String(referred))
+  await expect(tab(/^Negative/)).toContainText(String(negative))
+  await expect(tab(/^Positive/)).toContainText(String(positive))
+  await expect.poll(() => waitingCount(page)).toBe(referred)
+}
+
+test('switching the decision setting updates the queue and the results', async ({ page }) => {
+  await page.goto('/performance')
+  await page.getByRole('group', { name: 'Decision setting' }).getByRole('button', { name: 'Efficiency' }).click()
+  await page.getByRole('button', { name: 'Use this setting in the app' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Efficiency is the setting in use in the app.' })).toBeVisible()
+
+  await page.goto('/queue')
+  await expectQueueCounts(page, 33, 20, 12)
+  await expect(page.getByText('Decisions from the Efficiency setting.')).toBeVisible()
+
+  await page.goto('/samples/DT40')
+  await expect(page.getByText('score above 0.99', { exact: true })).toBeVisible()
+  await expect(page.getByText('Counted tiles score above 0.99 and decide the outcome.')).toBeVisible()
+  await expect(page.locator('.scale__labels')).toContainText('1–12 · referred')
+
+  // Back through the menu's Change link, to the Safety setting.
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await expect(page.locator('.sidebar__setting')).toContainText('Efficiency')
+  await page.locator('.sidebar__setting').getByRole('link', { name: 'Change' }).click()
+  await expect(page).toHaveURL(/\/performance#use-setting$/)
+  await page.getByRole('group', { name: 'Decision setting' }).getByRole('button', { name: /^Safety/ }).click()
+  await page.getByRole('button', { name: 'Use this setting in the app' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Safety is the setting in use in the app.' })).toBeVisible()
+
+  await page.goto('/samples/DT40')
+  await expect(page.getByText('score above 0.95', { exact: true })).toBeVisible()
+  await expect(page.locator('.scale__labels')).toContainText('1–35 · referred')
+  await page.goto('/queue')
+  await expectQueueCounts(page, 48, 10, 7)
+})
+
 test("DT40's tiles load on its review page", async ({ page }) => {
   await page.goto('/review/DT40')
   const tiles = page.locator('.review__tiles img')
