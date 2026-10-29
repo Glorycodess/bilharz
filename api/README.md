@@ -34,7 +34,8 @@ These must be present (they are not in git):
 | Stored tile scores | `results/patient_scores.npz` |
 
 `api/assets/detector.pt` is the same detector for PyTorch. It is used only on the
-Hugging Face Space, by the GPU scorer in `deploy/space/app.py`.
+Hugging Face Space, by the GPU scorer (`TorchGpuScorer` in `bilharz/scoring.py`);
+torch is not needed locally.
 
 ## Endpoints
 
@@ -43,7 +44,7 @@ All under `/api`, JSON, snake_case. `setting` is `safety` (the default) or
 
 | Method | Path | Returns |
 | --- | --- | --- |
-| GET | `/api/health` | `{"status": "ok", "scorer": "onnx-cpu", "samples": 65, "reviews_persistent": true}` |
+| GET | `/api/health` | `{"status": "ok", "scorer": "onnx-cpu", "samples": 65, "reviews_persistent": true, "reviews_unreadable": 0}` |
 | GET | `/api/config` | Both settings, their rules and the default |
 | GET | `/api/samples?setting=` | The queue: `id`, `confident_tiles`, `decision`, `reviewed` per sample |
 | GET | `/api/samples/{id}?setting=` | One sample's result, with its top 12 tiles; 404 if unknown |
@@ -89,6 +90,8 @@ logged.
 | `BILHARZ_MANIFEST_PATH` | `<assets>/tiles_manifest.json` | Tile manifest |
 | `BILHARZ_SCORES_PATH` | `results/patient_scores.npz` | Stored tile scores |
 | `BILHARZ_REVIEWS_DB` | `api/data/reviews.db` | SQLite file for reviews (folder created on start) |
+| `BILHARZ_REVIEWS_DIR` | unset | A folder on persistent storage (a mounted Storage Bucket) for the reviews journal, `reviews.jsonl`. Every review is written there too, and the SQLite file is rebuilt from it on start |
+| `BILHARZ_REVIEWS_PERSISTENT` | `true` | Without `BILHARZ_REVIEWS_DIR`: whether the SQLite file's disk survives a restart. `/api/health` reports it; with a journal, health reports whether the journal is writable instead |
 | `BILHARZ_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated CORS origins (`*` is ignored) |
 | `BILHARZ_EXPECTED_FILES` | `117` | Images per uploaded sample |
 | `BILHARZ_MAX_FILE_MB` | `15` | Largest single image |
@@ -112,12 +115,12 @@ server.py            FastAPI app: routes, CORS, security headers, errors
 bilharz/settings.py  paths, origins and limits from the environment
 bilharz/triage.py    the rule: count confident tiles, decide
 bilharz/tiling.py    one image → 12 tiles, exactly as in the notebooks
-bilharz/scoring.py   Scorer interface; OnnxScorer (CPU); score_named
+bilharz/scoring.py   Scorer interface; OnnxScorer (CPU); TorchGpuScorer and load_gpu_scorer (Space)
 bilharz/samples.py   the 65 stored samples and the tile archive
 bilharz/analysis.py  live analysis of an upload, in memory
 bilharz/security.py  streaming upload reader and JPEG checks
-bilharz/reviews.py   SQLite review store
-bilharz/routes.py    the endpoints
+bilharz/reviews.py   SQLite review store; the review journal on persistent storage
+bilharz/routes/      the endpoints, one router per area; deps.py holds the shared checks
 bilharz/schemas.py   Pydantic models
 tests/               pytest
 ```

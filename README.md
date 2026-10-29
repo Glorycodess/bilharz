@@ -16,6 +16,8 @@ African Leadership University · Glory Paul
 | **Figma** | https://www.figma.com/design/yNDxzYmsbYGOrhljmDWXmz/Bilharz |
 | **Walkthrough video** | (link to be added) |
 | **Technical report** | (link to be added) |
+| **Scope** | [docs/scope.md](docs/scope.md): the proposal against what was built |
+| **First mockups** | [design/README.md](design/README.md): the first design iteration and what replaced it |
 
 ---
 
@@ -137,7 +139,9 @@ python3 -m venv .venv
 
 The API is then at `http://localhost:8000/api`, with interactive docs at
 `http://localhost:8000/docs`. Reviews are stored in `api/data/reviews.db`; set
-`BILHARZ_REVIEWS_DB` to use another file. [api/README.md](api/README.md) lists
+`BILHARZ_REVIEWS_DB` to use another file, and `BILHARZ_REVIEWS_DIR` to keep a
+journal of every review on other storage, from which the database is rebuilt on
+start (as the live app does). [api/README.md](api/README.md) lists
 every endpoint and environment variable.
 
 **Frontend**, from `frontend/`:
@@ -223,11 +227,20 @@ centre of the design, since it is where the human and the model meet.
 | Review | The 12 highest-ranked tiles of a referred sample, for a technician to decide |
 | Queue | All samples, with the ones waiting for review |
 | Reviews | Every recorded review, its earlier versions, and a CSV export |
-| Performance | Accuracy and review workload for the two decision settings |
+| Performance | Accuracy and review workload for the two decision settings, and the choice of setting the app uses |
 
 The working designs are on
 [Figma](https://www.figma.com/design/yNDxzYmsbYGOrhljmDWXmz/Bilharz). Earlier
-mockups are in `design/`.
+mockups, the first design iteration, are in `design/`; [design/README.md](design/README.md)
+maps each one to the screen that replaced it, and [docs/scope.md](docs/scope.md)
+maps the proposal's features to what was built.
+
+**The decision setting.** Bilharz has two settings: Efficiency (fewer reviews)
+and Safety (no infected patient cleared in testing, more reviews). The app uses
+Safety by default; the Performance page compares the two and lets the user
+choose the one the app uses. The choice is remembered in that browser and
+applies to the queue, sample results and new analyses; recorded reviews do not
+depend on it.
 
 ## 4. Deployment
 
@@ -236,16 +249,17 @@ at https://iamglory-bilharz.hf.space. One server provides the API under `/api`,
 the built React site at `/`, and a small Gradio status page at `/gradio`.
 Uploads are scored by the detector in PyTorch on ZeroGPU, with ONNX Runtime on the
 CPU as the fallback. The 65 evaluation samples are served from their stored
-scores. `deploy/build_space.sh` assembles the Space from this repository; pushing
+scores. Reviews are written to a private Hugging Face Storage Bucket as well as
+the Space's local database, which is rebuilt from the bucket when the Space
+restarts. `deploy/build_space.sh` assembles the Space from this repository; pushing
 to the Space's own repository redeploys it.
 
 ![Bilharz architecture](figures/bilharz-architecture.png)
 
 The design behind it is described in [docs/architecture.md](docs/architecture.md).
 
-**Next.** Store reviews on persistent storage (the Space's disk is reset when it
-restarts), and package the service in a container so it can run on a
-laboratory's own infrastructure, where patient data often cannot leave the site.
+**Next.** Package the service in a container so it can run on a laboratory's
+own infrastructure, where patient data often cannot leave the site.
 
 **Longer term.** The Schistoscope is used in the field with unreliable
 connectivity, so a realistic deployment runs analysis on or beside the microscope
@@ -254,9 +268,6 @@ and synchronises records when a connection is available.
 ## 5. Video demo
 
 Walkthrough video: (link to be added)
-
-An earlier demo, recorded on the first version of the system, is at
-https://youtu.be/ufj1dCEyPjw.
 
 ## 6. Testing
 
@@ -270,9 +281,9 @@ changed because of it.
 
 | Strategy | Result |
 |---|---|
-| Backend unit and integration (pytest) | 91 passed, 98% statement coverage |
-| Frontend unit and component (Vitest) | 31 passed |
-| End to end (Playwright, Chromium) | 7 passed, including a real 117-image upload |
+| Backend unit and integration (pytest) | 108 passed, 96% statement coverage |
+| Frontend unit and component (Vitest) | 38 passed |
+| End to end (Playwright, Chromium) | 8 passed, including a real 117-image upload and switching the decision setting |
 | API contract (`npm run check:api`) | All fields the frontend reads are present |
 | Real samples (DT40, DT02, DT29) | All three decisions match the stored results, locally and live |
 | Compatibility (3 engines × 3 sizes × 8 pages) | Local 72 of 72; live 69 of 72 (a WebKit console message on one page) |
@@ -434,8 +445,9 @@ alone they look alike, which is why they are referred.
 - **Tiles do not overlap**, so an egg on a tile boundary is split between two.
 - **The Schistoscope figures** come from a different detector and pipeline, so
   they are context, not a like-for-like comparison.
-- **Reviews on the live app are not kept.** The Space's disk is reset when it
-  restarts or sleeps, and the reviews database with it.
+- **Reviews on the live app depend on the storage bucket.** They are kept in a
+  Storage Bucket, which is eventually consistent and has no shared locks, so the
+  app assumes a single server process owns the reviews journal.
 - **Uploads must arrive within 120 seconds.** A sample is about 180 MB, so a
   connection slower than about 1.5 MB/s cannot upload one to the live app.
 - **GPU time is shared.** ZeroGPU has a daily quota; when it is used up, uploads
@@ -443,10 +455,9 @@ alone they look alike, which is why they are referred.
 
 ## Next
 
-1. Keep reviews on persistent storage on the live app
-2. Retrain the detector with debris and fibres as negative examples
-3. Validate on new field samples from another site
-4. Run analysis beside the microscope, for sites without a reliable connection
+1. Retrain the detector with debris and fibres as negative examples
+2. Validate on new field samples from another site
+3. Run analysis beside the microscope, for sites without a reliable connection
 
 ## API endpoints
 
@@ -454,7 +465,7 @@ All under `/api`; [api/README.md](api/README.md) has the details.
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/health` | Status, the active scorer, and whether reviews persist |
+| `GET /api/health` | Status, the active scorer, and whether reviews survive a restart |
 | `GET /api/config` | The two decision settings and their rules |
 | `GET /api/samples` | The queue: each sample's confident-tile count, decision and latest review |
 | `GET /api/samples/{id}` | One sample's result, with its 12 highest-scoring tiles |
@@ -477,8 +488,8 @@ bilharz/
 ├── notebooks/    Data collection, preparation, detection, prediction and export
 ├── results/      Saved tile scores for the 65 patients
 ├── figures/      Result figures and the architecture diagram
-├── docs/         Architecture, testing results, and evidence (screenshots, measurements)
-├── design/       Earlier interface mockups
+├── docs/         Scope (scope.md), architecture, testing results, and evidence (screenshots, measurements)
+├── design/       The first design iteration's mockups, mapped to the built screens in design/README.md
 ├── scripts/      Fetching real test samples; backend measurements and stress tests
 └── README.md
 ```

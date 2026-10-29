@@ -13,9 +13,9 @@ the same machine over a home connection.
 
 | Strategy | Tool | Result |
 |---|---|---|
-| Backend unit and integration | pytest | 91 passed |
-| Frontend unit and component | Vitest, Testing Library | 31 passed |
-| End to end | Playwright (Chromium) | 7 passed |
+| Backend unit and integration | pytest | 108 passed |
+| Frontend unit and component | Vitest, Testing Library | 38 passed |
+| End to end | Playwright (Chromium) | 8 passed |
 | API contract | `npm run check:api` | All 5 endpoints match, with and without a review in the database |
 | Model validation | notebooks 04 and 05 | Nested cross-validation; ONNX reproduces all 65 decisions |
 | Real samples | `scripts/fetch_samples.py`, `/api/analyse` | 3 of 3 decisions match, locally and live |
@@ -38,15 +38,22 @@ throwaway reviews database for every test. Unit tests cover tiling (grid order,
 resizing), the triage rule (boundaries, both settings, the research counts
 48 / 10 / 7 and 33 / 20 / 12) and the ONNX scorer. Integration tests cover every
 endpoint, the review versioning, the CSV export, the admin token and review code,
-CORS and security headers, and the upload limits.
+CORS and security headers, and the upload limits. The reviews journal is tested
+by simulating restarts: reviews written, then a new app started over the same
+journal with an empty local database; plus corrupt, cut-off and duplicate
+lines, a directory that fails the write test, and a journal write that fails
+(the review is then not stored). The GPU scorer's selection and fallback are
+tested without torch installed (the import is blocked or the detector replaced).
 
-**Result.** 91 passed in about 39 s
+**Result.** 108 passed in about 38 s
 (`pytest -m "not slow"` skips the one full 117-image analysis).
 
 **Added in this round.** A test that sends four uploads at the same moment
 (earlier, the 429 test only faked a busy lock), a check that the lock is free
 after a 413, and tests for the new `scorer` field in the analysis response,
-including a GPU scorer that reports its CPU fallback.
+including a GPU scorer that reports its CPU fallback. Later: the reviews
+journal (9 tests) and the GPU scorer's selection and fallback (8 tests); the
+health test now includes `reviews_unreadable`.
 
 ### Frontend unit and component tests
 
@@ -65,9 +72,12 @@ present, and each mark resolves to the right colour in the stylesheets);
 `PageHeader`; the export dialog (the token field is emptied after a refused
 attempt, a download and a cancel, and the token never reaches `localStorage`,
 `sessionStorage` or a cookie); and page states (loading, "the server is waking
-up" with the automatic retry after 10 seconds, and Try again).
+up" with the automatic retry after 10 seconds, and Try again); and the decision
+setting (the server's default until one is chosen, the choice sent with the queue,
+a sample and an upload but not with reviews, kept after a reload, a stored setting
+the server does not know dropped, and blocked storage handled).
 
-**Result.** 31 tests in 5 files, all passing (`npm test`, about 1 second).
+**Result.** 38 tests in 6 files, all passing (`npm test`, about 2 seconds).
 
 ### End-to-end tests
 
@@ -82,6 +92,7 @@ second copy of the site whose backend is not running.
 | Test | Checks |
 |---|---|
 | Queue | 65 samples, 48 / 10 / 7 by decision, 48 waiting in the header |
+| Decision setting | Choosing Efficiency on the Performance page gives 33 / 20 / 12 in the queue and DT40's 0.99 threshold and 1–12 referral band; Safety again through the menu's Change link restores 48 / 10 / 7 |
 | Tiles | DT40's 12 review tiles load |
 | Record a review | The waiting count drops to 47; the Reviews page shows it |
 | Edit a review | A new version replaces it; the old one is listed as replaced |
@@ -89,7 +100,7 @@ second copy of the site whose backend is not running.
 | Upload | The real DT40 sample (117 images) gives Referred, with the time taken |
 | Backend stopped | The site says the server is waking up and will try again |
 
-**Result.** 7 of 7 passed (about 40 seconds, 30 of them the upload).
+**Result.** 8 of 8 passed (about 38 seconds, 31 of them the upload).
 
 ### API contract check
 
@@ -314,22 +325,24 @@ millisecond, and 200 arrive at once.
 | Module | Statements | Missed | Coverage |
 |---|---|---|---|
 | `bilharz/analysis.py` | 46 | 0 | 100% |
-| `bilharz/reviews.py` | 75 | 0 | 100% |
-| `bilharz/routes.py` | 151 | 0 | 100% |
+| `bilharz/reviews.py` | 180 | 0 | 100% |
+| `bilharz/routes/` (5 files) | 172 | 0 | 100% |
 | `bilharz/samples.py` | 52 | 2 | 96% |
-| `bilharz/schemas.py` | 36 | 0 | 100% |
-| `bilharz/scoring.py` | 39 | 3 | 92% |
+| `bilharz/schemas.py` | 37 | 0 | 100% |
+| `bilharz/scoring.py` | 85 | 20 | 76% |
 | `bilharz/security.py` | 88 | 1 | 99% |
-| `bilharz/settings.py` | 26 | 0 | 100% |
+| `bilharz/settings.py` | 30 | 0 | 100% |
 | `bilharz/tiling.py` | 9 | 0 | 100% |
 | `bilharz/triage.py` | 28 | 1 | 96% |
-| `server.py` | 68 | 4 | 94% |
-| **Total** | **618** | **11** | **98%** |
+| `server.py` | 69 | 4 | 94% |
+| **Total** | **796** | **28** | **96%** |
 
 Two important paths were untested and now have tests: an image whose JPEG header
 is valid but whose data is cut off (422, found by decoding), and an upload sent
 without a `Content-Length` header that passes the size limit while streaming
-(413). The 11 statements still untested are: closing the tile archive, a missing
+(413). Of the 28 statements untested, 17 are `torch_detector` in `scoring.py`,
+which builds the PyTorch model and needs torch, which the local backend does
+not install; it runs on the Space. The other 11 are: closing the tile archive, a missing
 archive member that the manifest lookup already prevents, the error when no
 scorer can be loaded, a triage file whose default setting is missing, re-raising
 an error after a response has started, and building the default app on first
@@ -413,8 +426,10 @@ needs `spaces` and a GPU, and was tested by running it with the Space's settings
   desktop engine, not on phones.
 - **Live measurements come from one connection on one day.** Upload times depend
   entirely on the connection.
-- **Reviews on the live site are lost when the Space restarts**, so no
-  persistence test was possible there.
+- **Review persistence was tested locally, not on a real bucket.** Restarts were
+  simulated in pytest and by restarting the assembled Space locally over the same
+  journal directory; a bucket mount's behaviour on the Space is checked at
+  start-up by the write test, which `/api/health` reports.
 - **The low-end simulation and the layout-shift test use the local build**, served
   by `vite preview` rather than the Space.
 - **Stress tests ran locally only**, by design, so the live site's behaviour under
