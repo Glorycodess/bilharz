@@ -16,6 +16,11 @@ def _path(name: str, default: Path) -> Path:
     return Path(value).expanduser() if value else default
 
 
+def _optional_path(name: str) -> Path | None:
+    value = os.environ.get(name)
+    return Path(value).expanduser() if value else None
+
+
 def _int(name: str, default: int) -> int:
     value = os.environ.get(name)
     return int(value) if value else default
@@ -43,8 +48,11 @@ class Settings:
     # Optional: when set, every review endpoint requires it in X-Review-Code.
     review_code: str | None = field(default=None, repr=False)
     # Whether reviews_db survives a restart (true on a normal disk; false on
-    # hosts with ephemeral storage). Reported by /api/health.
+    # hosts with ephemeral storage). Reported by /api/health without a reviews_dir.
     reviews_persistent: bool = True
+    # A directory on persistent storage (a mounted Storage Bucket) for the
+    # reviews journal; reviews_db is then rebuilt from it on start.
+    reviews_dir: Path | None = None
 
 
 def load_settings() -> Settings:
@@ -68,4 +76,5 @@ def load_settings() -> Settings:
         admin_token=os.environ.get("BILHARZ_ADMIN_TOKEN") or None,
         review_code=os.environ.get("BILHARZ_REVIEW_CODE") or None,
         reviews_persistent=os.environ.get("BILHARZ_REVIEWS_PERSISTENT", "true").lower() in ("1", "true", "yes"),
+        reviews_dir=_optional_path("BILHARZ_REVIEWS_DIR"),
     )

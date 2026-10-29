@@ -2,6 +2,8 @@
 # Versions follow the ZeroGPU docs (torch 2.8.0 to 2.13.0 listed as supported,
 # Gradio 4+) and must match sdk_version in README.md.
 gradio==6.30.0
+# Exact: app.py calls spaces.zero.startup(), which is not public API. Check
+# that it still exists before changing this version (see docs/architecture.md).
 spaces==0.51.3
 torch==2.13.0
 torchvision==0.28.0

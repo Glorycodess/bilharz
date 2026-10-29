@@ -10,7 +10,12 @@ class Health(BaseModel):
     status: Literal["ok"]
     scorer: str
     samples: int
-    reviews_persistent: bool = Field(description="False when reviews are lost on restart (ephemeral disk)")
+    reviews_persistent: bool = Field(
+        description="True when reviews survive a restart: kept on a persistent disk, or in a writable reviews journal"
+    )
+    reviews_unreadable: int = Field(
+        default=0, description="Lines of the reviews journal that could not be read at start-up (kept in the file)"
+    )
 
 
 class RuleOut(BaseModel):

@@ -6,7 +6,8 @@ One server on the port the Space expects:
   /          the built React site, with single-page-app fallback
 
 Scoring uploads: on ZeroGPU, the detector runs in PyTorch on the GPU through
-one @spaces.GPU function, called from the FastAPI route. Calls from outside a
+one @spaces.GPU function (bilharz.scoring.TorchGpuScorer), called from the
+FastAPI route. Calls from outside a
 Gradio event carry no visitor token, so they count against the Space's own
 ZeroGPU allowance, not the visitor's. Any GPU error (including an exhausted
 quota) falls back to the ONNX model on the CPU for that request. Without
@@ -30,23 +31,20 @@ SPACE_URL = "https://iamglory-bilharz.hf.space"
 os.environ.setdefault("BILHARZ_ASSETS_DIR", str(ASSETS))
 os.environ.setdefault("BILHARZ_SCORES_PATH", str(ASSETS / "patient_scores.npz"))
 os.environ.setdefault("BILHARZ_ALLOWED_ORIGINS", SPACE_URL)
-# The Space disk is ephemeral: reviews are lost when it restarts, unless
-# BILHARZ_REVIEWS_DB points at an attached storage bucket and
-# BILHARZ_REVIEWS_PERSISTENT is set to true.
+# The Space disk is ephemeral, so the reviews database there is lost when it
+# restarts. Set BILHARZ_REVIEWS_DIR to the mount path of a Storage Bucket to
+# keep every review in a journal there; the database is rebuilt from it on start.
 os.environ.setdefault("BILHARZ_REVIEWS_DB", str(HERE / "data" / "reviews.db"))
 os.environ.setdefault("BILHARZ_REVIEWS_PERSISTENT", "false")
 # No usage analytics from Gradio.
 os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
 
 import gradio as gr  # noqa: E402
-import numpy as np  # noqa: E402
-import torch  # noqa: E402
-import torchvision  # noqa: E402
 import uvicorn  # noqa: E402
 from fastapi import Request  # noqa: E402
 from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
 
-from bilharz.scoring import OnnxScorer  # noqa: E402
+from bilharz.scoring import OnnxScorer, load_gpu_scorer  # noqa: E402
 from bilharz.settings import load_settings  # noqa: E402
 from server import create_app  # noqa: E402
 
@@ -54,77 +52,32 @@ log = logging.getLogger("bilharz.space")
 logging.basicConfig(level=logging.INFO)
 
 ON_ZERO_GPU = os.environ.get("SPACES_ZERO_GPU", "").lower() in ("1", "t", "true")
-GPU_BATCH = 256
-
-# --- The detector in PyTorch -------------------------------------------------
-# ResNet18 with a single-logit head; ImageNet normalisation before, sigmoid after.
-# Same weights as detector.onnx (exported from detector.pt in notebook 05).
-_model = torchvision.models.resnet18(weights=None)
-_model.fc = torch.nn.Linear(512, 1)
-_model.load_state_dict(torch.load(ASSETS / "detector.pt", map_location="cpu", weights_only=True))
-_model.eval()
-_mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
-_std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
-_device = "cpu"
-if ON_ZERO_GPU:
-    # The ZeroGPU docs: place models on cuda at module level (CUDA is emulated
-    # here; the real GPU is attached inside @spaces.GPU functions).
-    _device = "cuda"
-    _model.to(_device)
-    _mean, _std = _mean.to(_device), _std.to(_device)
 
 
-@spaces.GPU(duration=45)
-def score_on_gpu(tiles: np.ndarray) -> np.ndarray:
-    """uint8 tiles (N, 256, 256, 3) → probabilities (N,). Runs on the GPU on ZeroGPU."""
-    x = torch.from_numpy(tiles)
-    out = []
-    with torch.inference_mode():
-        for i in range(0, len(x), GPU_BATCH):
-            batch = x[i : i + GPU_BATCH].to(_device).permute(0, 3, 1, 2).float().div(255)
-            logits = _model((batch - _mean) / _std).squeeze(1)
-            out.append(torch.sigmoid(logits).float().cpu())
-    return torch.cat(out).numpy() if out else np.zeros(0, dtype=np.float32)
+def start_zero_gpu() -> None:
+    """Run ZeroGPU's start-up: pack the model's CUDA weights for the GPU
+    workers and report the @spaces.GPU function to ZeroGPU.
 
-
-class TorchGpuScorer:
-    """The detector on ZeroGPU, with the ONNX scorer as fallback."""
-
-    name = "torch-gpu"
-    whole_sample = True  # one GPU reservation per upload
-
-    def __init__(self, fallback: OnnxScorer):
-        self.fallback = fallback
-
-    def score_named(self, tiles: np.ndarray) -> tuple[np.ndarray, str]:
-        """The scores, and which scorer produced them (reported per upload)."""
-        try:
-            return score_on_gpu(tiles), self.name
-        except Exception as error:  # quota exhausted, no GPU free, worker error, ...
-            # Log the kind of error only: never data from the upload.
-            log.warning("GPU scoring failed (%s); using ONNX on the CPU for this request", type(error).__name__)
-            return self.fallback.score(tiles), self.fallback.name
-
-    def score(self, tiles: np.ndarray) -> np.ndarray:
-        return self.score_named(tiles)[0]
+    spaces runs this from the first gr.Blocks.launch(). This app is served by
+    uvicorn with Gradio mounted, so launch() is never called, and the hook is
+    called here instead. `spaces.zero.startup` is not part of the package's
+    public API, which is why spaces is pinned in requirements.txt. If it is
+    missing or fails, load_gpu_scorer logs it and scores with ONNX on the CPU.
+    See docs/architecture.md.
+    """
+    startup = getattr(getattr(spaces, "zero", None), "startup", None)
+    if startup is None:
+        raise RuntimeError("this version of spaces has no zero.startup")
+    startup()
 
 
 def make_scorer(settings):
-    onnx = OnnxScorer.from_settings(settings)
     if not ON_ZERO_GPU:
         log.info("Not on ZeroGPU: scoring with ONNX on the CPU")
-        return onnx
-    try:
-        # spaces runs this hook from gr.Blocks.launch(); this app is served by
-        # uvicorn with Gradio mounted, so launch() is never called: run it here.
-        # It packs the CUDA weights for the GPU workers and reports the
-        # @spaces.GPU functions to ZeroGPU.
-        spaces.zero.startup()
-    except Exception as error:
-        log.warning("ZeroGPU start-up failed (%s): scoring with ONNX on the CPU", type(error).__name__)
-        return onnx
-    log.info("Scoring uploads on ZeroGPU, with ONNX on the CPU as fallback")
-    return TorchGpuScorer(onnx)
+        return OnnxScorer.from_settings(settings)
+    # The ZeroGPU docs: place models on cuda at start-up (CUDA is emulated
+    # here; the real GPU is attached inside @spaces.GPU functions).
+    return load_gpu_scorer(settings, spaces.GPU(duration=45), start_zero_gpu, ASSETS / "detector.pt")
 
 
 # --- Content-Security-Policy --------------------------------------------------
@@ -191,7 +144,7 @@ with gr.Blocks(title="Bilharz status") as status_page:
         f"The app runs at [{SPACE_URL}]({SPACE_URL}). This page only reports its status.\n\n"
         f"- Scoring: **{app.state.scorer.name}**\n"
         f"- Samples: **{len(app.state.samples)}**\n"
-        f"- Reviews kept after a restart: **{'yes' if settings.reviews_persistent else 'no'}**\n\n"
+        f"- Reviews kept after a restart: **{'yes' if app.state.reviews.persistent else 'no'}**\n\n"
         "Research prototype. Not a medical device."
     )
 
@@ -215,7 +168,6 @@ def manifest():
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
     return FileResponse(STATIC / "favicon.svg", media_type="image/svg+xml")
-
 
 
 @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)

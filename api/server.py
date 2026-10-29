@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
-from bilharz.reviews import ReviewStore
+from bilharz.reviews import ReviewJournal, ReviewStore
 from bilharz.routes import router
 from bilharz.samples import SampleStore, TileArchive
 from bilharz.scoring import Scorer, load_scorer
@@ -73,7 +73,8 @@ def create_app(settings: Settings | None = None, scorer: Scorer | None = None) -
     app.state.triage = load_config(settings.config_path)
     app.state.samples = SampleStore(settings.scores_path, settings.manifest_path)
     app.state.tiles = TileArchive(settings.tiles_zip)
-    app.state.reviews = ReviewStore(settings.reviews_db)
+    journal = ReviewJournal(settings.reviews_dir) if settings.reviews_dir else None
+    app.state.reviews = ReviewStore(settings.reviews_db, journal, settings.reviews_persistent)
     app.state.scorer = scorer or load_scorer(settings)
     app.state.analysis_lock = asyncio.Lock()
 

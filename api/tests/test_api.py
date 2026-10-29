@@ -24,6 +24,7 @@ def test_health(client):
         "scorer": "onnx-cpu",
         "samples": 65,
         "reviews_persistent": True,
+        "reviews_unreadable": 0,
     }
 
 
