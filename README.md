@@ -6,6 +6,8 @@ detector decides the clear cases, and refers the uncertain ones to a human revie
 Final-year capstone · BSc Software Engineering (Machine Learning) ·
 African Leadership University · Glory Paul
 
+**[Walkthrough video](https://youtu.be/-Z8fiUBqLOQ)** · **[Technical report](https://docs.google.com/document/d/111ZKOFKCSfY0s7RgM_NgKRzZw01MXgzYWwKebot1TCw/edit?usp=sharing)**
+
 ## Links
 
 | | |
@@ -14,10 +16,10 @@ African Leadership University · Glory Paul
 | **Hugging Face Space** | https://huggingface.co/spaces/iamglory/bilharz |
 | **Repository** | https://github.com/Glorycodess/bilharz |
 | **Figma** | https://www.figma.com/design/yNDxzYmsbYGOrhljmDWXmz/Bilharz |
-| **Walkthrough video** | (link to be added) |
-| **Technical report** | (link to be added) |
+| **Walkthrough video** | https://youtu.be/-Z8fiUBqLOQ |
+| **Technical report** | https://docs.google.com/document/d/111ZKOFKCSfY0s7RgM_NgKRzZw01MXgzYWwKebot1TCw/edit?usp=sharing |
 | **Scope** | [docs/scope.md](docs/scope.md): the proposal against what was built |
-| **First mockups** | [design/README.md](design/README.md): the first design iteration and what replaced it |
+| **First mockups** | [design/README.md](design/README.md): the first design iteration, mapped to the built screens |
 
 ---
 
@@ -279,7 +281,7 @@ and synchronises records when a connection is available.
 
 ## 5. Video demo
 
-Walkthrough video: (link to be added)
+Walkthrough video: https://youtu.be/-Z8fiUBqLOQ
 
 ## 6. Testing
 

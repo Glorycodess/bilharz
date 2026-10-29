@@ -2,8 +2,9 @@
 
 This document maps the approved proposal to the delivered system: each planned
 feature and its status, where each item of the evaluation objective is
-delivered, every change of scope with the evidence behind it, the answers to
-the research questions, and the first mockups against the built screens.
+delivered, the one deviation from the approved objectives with the evidence
+behind it, the answers to the research questions, and the first mockups against
+the built screens.
 Numbers come from the notebooks, the [README](../README.md) and
 [testing.md](testing.md).
 
@@ -25,7 +26,7 @@ From the approved proposal:
 
 Objective 1 is met. Objective 2 is met with one deviation: gated attention MIL
 was built and evaluated but not adopted, and a trained detector with a
-confident-tile count rule replaced it ([scope changes](#scope-changes)).
+confident-tile count rule replaced it ([deviation](#deviation-from-the-approved-objectives)).
 Objective 3 is met item by item ([below](#objective-3-item-by-item)). The
 comparison with fixed aggregation rules and with published results goes beyond
 the approved objectives.
@@ -35,17 +36,17 @@ the approved objectives.
 | Planned feature | Intended purpose | Current status | Evidence |
 | --- | --- | --- | --- |
 | Dataset inspection | Establish whether a public dataset supports patient-level modelling (objective 1) | Completed | Notebook 01 (download, MD5 check, 65 samples × 117 images); notebook 02 §1–2 (structure asserted, `microscopist_result.csv` with egg count and diagnosis); notebook 03 (SHdataset_12k: 12,051 images with pixel masks) |
-| Egg detection | Score each field-of-view region for eggs (objective 2) | Completed, changed | Notebook 03: ResNet18 fine-tuned on 32,277 tiles, validation AUROC 0.985, average precision 0.957. Replaced frozen ImageNet features (see [scope changes](#scope-changes)) |
-| Gated attention MIL | Combine a sample's bag of detections into one patient score (objective 2) | Implemented and evaluated, not adopted: a deviation from objective 2 | Notebook 02 §6–9: frames AUROC 0.731 ± 0.042 against max-pooling 0.723 ± 0.017; tiles 0.641 ± 0.033 against 0.762 ± 0.019. Replaced by the trained detector and the confident-tile count rule (notebook 03; notebook 04 §4–5) |
+| Egg detection | Score each field-of-view region for eggs (objective 2) | Completed | Notebook 03: ResNet18 fine-tuned on 32,277 tiles, validation AUROC 0.985, average precision 0.957 ([development notes](#development-notes)) |
+| Gated attention MIL | Combine a sample's bag of detections into one patient score (objective 2) | Built and evaluated, not adopted | Notebook 02 §6–9: frames AUROC 0.731 ± 0.042 against max-pooling 0.723 ± 0.017; tiles 0.641 ± 0.033 against 0.762 ± 0.019. Replaced by the trained detector and the confident-tile count rule (notebook 03; notebook 04 §4–5) |
 | Selective prediction and deferral | Defer high-ambiguity samples to a reviewer instead of deciding them (objective 2) | Completed | Notebook 04: three-way triage; referral by confidence AURC 0.095 against 0.206 at random, better in 20 of 20 repetitions; [`figures/fig_risk_coverage_nested.png`](../figures/fig_risk_coverage_nested.png) |
 | Evaluation against the reference standard | Nested cross-validation and bootstrapping; patient-level sensitivity, specificity, coverage rate, risk-coverage curves and AURC against expert microscopy (objective 3) | Completed | See [objective 3, item by item](#objective-3-item-by-item) |
 | Comparison with fixed rules and published results | Show what triage adds over simpler rules and the existing system; beyond the approved objectives | Completed | README, Results §2: any-detection rule 100% / 0%; highest tile 85.6% / 83.6%; tile count 79.4% / 86.7%; random referral 88.8% / 93.3% at the same workload. Published Schistoscope figures (Meulah et al., 2022) given as context, not a like-for-like comparison |
 | Backend API | Serve stored results, analyse uploads, record reviews | Completed | [`api/`](../api/), [`api/README.md`](../api/README.md); 108 backend tests; [testing.md](testing.md#backend-unit-and-integration-tests) |
-| Deployment | A public, working instance of the system | Completed, changed | Hugging Face Space at https://iamglory-bilharz.hf.space, scoring on ZeroGPU with ONNX on the CPU as fallback; [`deploy/README.md`](../deploy/README.md); [architecture.md](architecture.md) |
+| Deployment | A public, working instance of the system | Completed | Hugging Face Space at https://iamglory-bilharz.hf.space, scoring on ZeroGPU with ONNX on the CPU as fallback; [`deploy/README.md`](../deploy/README.md); [architecture.md](architecture.md) |
 | Reviewer workflow | A technician decides the referred samples | Completed | Queue, Review workspace with the 12 highest-ranked tiles and an egg guide, versioned reviews with conflict detection; [queue](evidence/features/queue.jpg), [review](evidence/features/review-dt40-egg-guide.jpg), [reviews](evidence/features/reviews.jpg) |
-| Review persistence | Reviews survive restarts of the server | Completed, changed | SQLite, plus a journal on a Hugging Face Storage Bucket from which the database is rebuilt at start-up ([architecture.md](architecture.md#settings-and-storage), `api/tests/test_journal.py`). On the live app once the bucket is attached ([`deploy/README.md`](../deploy/README.md)) |
+| Review persistence | Reviews survive restarts of the server | Completed | SQLite, plus a journal on a Hugging Face Storage Bucket from which the database is rebuilt at start-up ([architecture.md](architecture.md#settings-and-storage), `api/tests/test_journal.py`). On the live app once the bucket is attached ([`deploy/README.md`](../deploy/README.md)) |
 | Decision setting | Choose between review workload and safety | Completed | Two settings (Efficiency, Safety) compared on the Performance page and chosen there for the app, per browser; [Performance](evidence/features/performance-local-setting-control.jpg); `frontend/src/setting.test.js`, end-to-end test "switching the decision setting" |
-| Access control | Keep review data from casual access | Completed, changed | No accounts: an optional review access code and an admin token for export and deletion ([`design/README.md`](../design/README.md#first-design-iteration)) |
+| Access control | Keep review data from casual access | Completed | An optional review access code for reading and writing reviews, and an admin token for export and deletion ([architecture.md](architecture.md#settings-and-storage)) |
 
 Screens of the built system, captured from the live app at 1440 × 900:
 [landing](evidence/features/landing.jpg),
@@ -79,18 +80,9 @@ cut-off chosen inside the cross-validation folds.
 | Risk-coverage curves | Confidence against random deferral and the oracle, with nested threshold selection | Notebook 04, "Deferral vs random, with nested threshold selection"; [`figures/fig_risk_coverage_nested.png`](../figures/fig_risk_coverage_nested.png); README, Results §3 |
 | AURC | 0.095 by confidence against 0.206 at random, better in 20 of 20 repeats; bootstrap interval for the difference −0.174 to −0.043 | Notebook 04, "Deferral vs random, with nested threshold selection"; [testing.md](testing.md#bootstrap-intervals) |
 
-## Scope changes
+## Deviation from the approved objectives
 
-**Frozen ImageNet features replaced by a trained egg detector.** Notebook 02
-scored tiles with a linear probe on a frozen ImageNet ResNet50. Deferral by its
-confidence was no better than deferral at random: AURC 0.2755 against 0.2829,
-and the error rate did not fall with confidence across quintiles (23%, 23%, 38%,
-38%, 15%). Notebook 03 therefore trained a detector on SHdataset_12k, whose
-pixel masks give tile labels directly. With it, referral by confidence beat
-random referral in 20 of 20 repetitions (notebook 04).
-
-**Gated attention MIL evaluated, not adopted: a deviation from objective 2.**
-Objective 2 promised gated attention-based Multiple Instance Learning over the
+**Gated attention MIL: built and evaluated, not adopted.** Objective 2 promised gated attention-based Multiple Instance Learning over the
 bags of detections. It was built and evaluated in notebook 02 (65 patients,
 5 × 5-fold cross-validation). On whole frames it did no better than max-pooling
 (AUROC 0.731 ± 0.042 against 0.723 ± 0.017), and on tiles it fell well below it
@@ -102,20 +94,14 @@ confidence threshold, which separated patients well (AUROC 0.908 at 0.99 in
 notebook 04 §4) and gave the three-way triage directly. The selective prediction
 layer of objective 2 is built on that count.
 
-**Deployment moved from Render to Hugging Face Spaces.** The API ran on
-Render's free tier from 8 October (commit `2988068`). An analysis of one sample
-needs about 0.9 GB of memory at its peak (861 MB measured) and about 30 seconds
-of CPU on an 8-core laptop ([testing.md](testing.md#performance)), which
-Render's free tier could not provide. A Hugging Face Space with ZeroGPU runs
-the detector on a GPU (about 5 seconds per analysis on the server) and serves
-the site, the API and the model from one server, with the CPU as fallback.
+## Development notes
 
-**Sign-in replaced by an optional review access code.** The system is a
-research prototype with no user accounts and stores no personal data: a review
-is a verdict, an optional note, an optional anonymous tester code and a time.
-An access code, and an admin token for export and deletion, protect the review
-data without collecting identities (commit `be7fc3c`;
-[`design/README.md`](../design/README.md)).
+**How the egg detector was arrived at.** Notebook 02 scored tiles with a linear probe on a frozen ImageNet ResNet50. Deferral by its
+confidence was no better than deferral at random: AURC 0.2755 against 0.2829,
+and the error rate did not fall with confidence across quintiles (23%, 23%, 38%,
+38%, 15%). Notebook 03 therefore trained a detector on SHdataset_12k, whose
+pixel masks give tile labels directly. With it, referral by confidence beat
+random referral in 20 of 20 repetitions (notebook 04).
 
 **Reviewer interaction evaluated by simulation.** As the proposal's scope
 defined, referred samples are assumed to be read correctly by a reviewer,
@@ -134,7 +120,8 @@ measured with real reviewers.
 
 ## The first mockups and the built screens
 
-The seven mockups in [`design/`](../design/) are the first design iteration.
+The mockups in [`design/`](../design/) are the first design iteration, mapped
+here to the built screens.
 
 | Mockup | Built screen |
 | --- | --- |
@@ -144,4 +131,3 @@ The seven mockups in [`design/`](../design/) are the first design iteration.
 | Sample review | [Review workspace](evidence/features/review-dt40-egg-guide.jpg) |
 | Batch report | [Reviews](evidence/features/reviews.jpg) with CSV export, and [Performance](evidence/features/performance.jpg) |
 | Decision settings | The [decision setting](evidence/features/performance-local-setting-control.jpg), chosen on the Performance page |
-| Sign-in | Not built: an optional review access code instead (see above) |
