@@ -1,0 +1,351 @@
+{
+  "description": "Confusion matrices and extra metrics for the capstone report (notebook 04 procedure).",
+  "labels_source": "results/patient_scores.npz, key 'y' (expert reference: 32 infected, 33 healthy), as loaded by scripts/bootstrap_intervals.py load()",
+  "method": {
+    "procedure": "scripts/bootstrap_intervals.py: folds(), THRS, MARGIN; fold loop of triage_runs() reused, cross-checked to equal triage_runs() exactly",
+    "cross_validation": "20 x 5-fold stratified, random_state=0",
+    "thresholds": [
+      0.9,
+      0.95,
+      0.99,
+      0.995,
+      0.999
+    ],
+    "safety_margin": 2,
+    "pooling": "counts summed over 20 repeats; each repeat holds out every patient once (1,300 decisions)",
+    "final_with_correct_review": "referred samples assumed read correctly by the reviewer (basis of 96.9% / 96.7%)",
+    "comparison_rules": "notebook 04 cell 26 verbatim (any tile > 0.5; max tile score with best_cut by balanced accuracy)",
+    "lo_hi_overlap_cases": {
+      "triage": 0,
+      "safety_margin": 0
+    }
+  },
+  "step1_confirmed": {
+    "triage": {
+      "sensitivity": 96.875,
+      "specificity": 96.66666666666667,
+      "reviewed": 45.84615384615385
+    },
+    "safety_margin": {
+      "sensitivity": 100.0,
+      "specificity": 96.51515151515152,
+      "reviewed": 72.07692307692308
+    }
+  },
+  "out_of_fold": {
+    "triage": {
+      "basis": "out-of-fold (20 x 5-fold, nested threshold selection)",
+      "three_way": {
+        "infected": {
+          "counts": {
+            "negative": 20,
+            "referred": 372,
+            "positive": 248
+          },
+          "total": 640,
+          "row_share": {
+            "negative": 0.03125,
+            "referred": 0.58125,
+            "positive": 0.3875
+          },
+          "average_per_repeat": {
+            "negative": 1.0,
+            "referred": 18.6,
+            "positive": 12.4
+          }
+        },
+        "healthy": {
+          "counts": {
+            "negative": 414,
+            "referred": 224,
+            "positive": 22
+          },
+          "total": 660,
+          "row_share": {
+            "negative": 0.6272727272727273,
+            "referred": 0.3393939393939394,
+            "positive": 0.03333333333333333
+          },
+          "average_per_repeat": {
+            "negative": 20.7,
+            "referred": 11.2,
+            "positive": 1.1
+          }
+        }
+      },
+      "referred_share": 0.4584615384615385,
+      "automatic_share": 0.5415384615384615,
+      "automatic_only_2x2": {
+        "TP": 248,
+        "FN": 20,
+        "TN": 414,
+        "FP": 22,
+        "n": 704,
+        "sensitivity": 0.9253731343283582,
+        "specificity": 0.9495412844036697,
+        "precision_ppv": 0.9185185185185185,
+        "npv": 0.9539170506912442,
+        "accuracy": 0.9403409090909091,
+        "f1": 0.9219330855018587
+      },
+      "final_with_correct_review": {
+        "TP": 620,
+        "FN": 20,
+        "TN": 638,
+        "FP": 22,
+        "n": 1300,
+        "sensitivity": 0.96875,
+        "specificity": 0.9666666666666667,
+        "precision_ppv": 0.9657320872274143,
+        "npv": 0.9696048632218845,
+        "accuracy": 0.9676923076923077,
+        "f1": 0.9672386895475819
+      }
+    },
+    "safety_margin": {
+      "basis": "out-of-fold (20 x 5-fold, nested threshold selection)",
+      "three_way": {
+        "infected": {
+          "counts": {
+            "negative": 0,
+            "referred": 500,
+            "positive": 140
+          },
+          "total": 640,
+          "row_share": {
+            "negative": 0.0,
+            "referred": 0.78125,
+            "positive": 0.21875
+          },
+          "average_per_repeat": {
+            "negative": 0.0,
+            "referred": 25.0,
+            "positive": 7.0
+          }
+        },
+        "healthy": {
+          "counts": {
+            "negative": 200,
+            "referred": 437,
+            "positive": 23
+          },
+          "total": 660,
+          "row_share": {
+            "negative": 0.30303030303030304,
+            "referred": 0.6621212121212121,
+            "positive": 0.03484848484848485
+          },
+          "average_per_repeat": {
+            "negative": 10.0,
+            "referred": 21.85,
+            "positive": 1.15
+          }
+        }
+      },
+      "referred_share": 0.7207692307692307,
+      "automatic_share": 0.2792307692307692,
+      "automatic_only_2x2": {
+        "TP": 140,
+        "FN": 0,
+        "TN": 200,
+        "FP": 23,
+        "n": 363,
+        "sensitivity": 1.0,
+        "specificity": 0.8968609865470852,
+        "precision_ppv": 0.8588957055214724,
+        "npv": 1.0,
+        "accuracy": 0.9366391184573003,
+        "f1": 0.9240924092409241
+      },
+      "final_with_correct_review": {
+        "TP": 640,
+        "FN": 0,
+        "TN": 637,
+        "FP": 23,
+        "n": 1300,
+        "sensitivity": 1.0,
+        "specificity": 0.9651515151515152,
+        "precision_ppv": 0.9653092006033183,
+        "npv": 1.0,
+        "accuracy": 0.9823076923076923,
+        "f1": 0.9823484267075978
+      }
+    },
+    "comparison_rules": {
+      "any_tile_over_0.5": {
+        "TP": 640,
+        "FN": 0,
+        "TN": 0,
+        "FP": 660,
+        "n": 1300,
+        "sensitivity": 1.0,
+        "specificity": 0.0,
+        "precision_ppv": 0.49230769230769234,
+        "npv": null,
+        "accuracy": 0.49230769230769234,
+        "f1": 0.6597938144329897,
+        "basis": "no parameters fitted; same folds, pooled over 20 repeats (equals in-sample x 20)"
+      },
+      "max_tile_single_threshold": {
+        "TP": 548,
+        "FN": 92,
+        "TN": 552,
+        "FP": 108,
+        "n": 1300,
+        "sensitivity": 0.85625,
+        "specificity": 0.8363636363636363,
+        "precision_ppv": 0.8353658536585366,
+        "npv": 0.8571428571428571,
+        "accuracy": 0.8461538461538461,
+        "f1": 0.845679012345679,
+        "basis": "out-of-fold (cut chosen on training folds by balanced accuracy, notebook 04 cell 26)",
+        "cuts_chosen": [
+          0.995117,
+          0.99707,
+          0.997559,
+          0.998535,
+          0.999023,
+          0.999512
+        ]
+      }
+    }
+  },
+  "detector_tile_level": {
+    "available": false,
+    "finding": "Detector validation predictions are not saved in the repository. Notebook 03 (cell 34) wrote val_scores.npy, and the tile labels y.npy and shard ids g.npy (cell 24), only to /kaggle/working; no such file exists under ~/bilharz, and results/ holds only patient_scores.npz. The notebook reports only validation AUROC 0.9847 and AP 0.9558 (best epoch, 6,662 tiles, 1,531 positive). No tile-level confusion matrix can be computed without these files; none is estimated here."
+  },
+  "in_sample_deployed_rules": {
+    "efficiency": {
+      "basis": "IN-SAMPLE (rule fitted on all 65 patients)",
+      "three_way": {
+        "infected": {
+          "counts": {
+            "negative": 0,
+            "referred": 20,
+            "positive": 12
+          },
+          "total": 32,
+          "row_share": {
+            "negative": 0.0,
+            "referred": 0.625,
+            "positive": 0.375
+          }
+        },
+        "healthy": {
+          "counts": {
+            "negative": 20,
+            "referred": 13,
+            "positive": 0
+          },
+          "total": 33,
+          "row_share": {
+            "negative": 0.6060606060606061,
+            "referred": 0.3939393939393939,
+            "positive": 0.0
+          }
+        }
+      },
+      "referred_share": 0.5076923076923077,
+      "automatic_share": 0.49230769230769234,
+      "automatic_only_2x2": {
+        "TP": 12,
+        "FN": 0,
+        "TN": 20,
+        "FP": 0,
+        "n": 32,
+        "sensitivity": 1.0,
+        "specificity": 1.0,
+        "precision_ppv": 1.0,
+        "npv": 1.0,
+        "accuracy": 1.0,
+        "f1": 1.0
+      },
+      "final_with_correct_review": {
+        "TP": 32,
+        "FN": 0,
+        "TN": 33,
+        "FP": 0,
+        "n": 65,
+        "sensitivity": 1.0,
+        "specificity": 1.0,
+        "precision_ppv": 1.0,
+        "npv": 1.0,
+        "accuracy": 1.0,
+        "f1": 1.0
+      },
+      "rule": {
+        "tile_threshold": 0.99,
+        "clear_below": 1,
+        "flag_above": 12
+      }
+    },
+    "safety": {
+      "basis": "IN-SAMPLE (rule fitted on all 65 patients)",
+      "three_way": {
+        "infected": {
+          "counts": {
+            "negative": 0,
+            "referred": 25,
+            "positive": 7
+          },
+          "total": 32,
+          "row_share": {
+            "negative": 0.0,
+            "referred": 0.78125,
+            "positive": 0.21875
+          }
+        },
+        "healthy": {
+          "counts": {
+            "negative": 10,
+            "referred": 23,
+            "positive": 0
+          },
+          "total": 33,
+          "row_share": {
+            "negative": 0.30303030303030304,
+            "referred": 0.696969696969697,
+            "positive": 0.0
+          }
+        }
+      },
+      "referred_share": 0.7384615384615385,
+      "automatic_share": 0.26153846153846155,
+      "automatic_only_2x2": {
+        "TP": 7,
+        "FN": 0,
+        "TN": 10,
+        "FP": 0,
+        "n": 17,
+        "sensitivity": 1.0,
+        "specificity": 1.0,
+        "precision_ppv": 1.0,
+        "npv": 1.0,
+        "accuracy": 1.0,
+        "f1": 1.0
+      },
+      "final_with_correct_review": {
+        "TP": 32,
+        "FN": 0,
+        "TN": 33,
+        "FP": 0,
+        "n": 65,
+        "sensitivity": 1.0,
+        "specificity": 1.0,
+        "precision_ppv": 1.0,
+        "npv": 1.0,
+        "accuracy": 1.0,
+        "f1": 1.0
+      },
+      "rule": {
+        "tile_threshold": 0.95,
+        "clear_below": 1,
+        "flag_above": 35
+      }
+    }
+  },
+  "environment": {
+    "python": "3.14.7",
+    "numpy": "2.5.4"
+  }
+}
