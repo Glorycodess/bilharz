@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { countWaiting, getConfig, getQueue } from '../api.js'
 import { useApi } from '../useApi.js'
 import Logo from './Logo.jsx'
-import { ChartIcon, ClipboardCheckIcon, CloseIcon, HomeIcon, ListIcon, MenuIcon, UploadIcon } from './Icons.jsx'
+import { ChartIcon, ClipboardCheckIcon, CloseIcon, HomeIcon, ListIcon, MenuIcon, ShieldIcon, UploadIcon } from './Icons.jsx'
 import './Header.css'
 
 const NAV = [
@@ -12,6 +12,7 @@ const NAV = [
   { to: '/queue', label: 'Queue', Icon: ListIcon, match: ['/queue', '/samples', '/review'], badge: true },
   { to: '/reviews', label: 'Reviews', Icon: ClipboardCheckIcon, match: ['/reviews'] },
   { to: '/performance', label: 'Performance', Icon: ChartIcon, match: ['/performance'] },
+  { to: '/privacy', label: 'Privacy', Icon: ShieldIcon, match: ['/privacy'] },
 ]
 
 const FOCUSABLE = 'a[href], button:not([disabled])'

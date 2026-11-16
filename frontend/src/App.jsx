@@ -8,6 +8,7 @@ import Review from './pages/Review.jsx'
 import Queue from './pages/Queue.jsx'
 import Performance from './pages/Performance.jsx'
 import Reviews from './pages/Reviews.jsx'
+import Privacy from './pages/Privacy.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 function ScrollToTop() {
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/queue" element={<Queue />} />
           <Route path="/reviews" element={<Reviews />} />
           <Route path="/performance" element={<Performance />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
