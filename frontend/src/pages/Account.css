@@ -1,0 +1,70 @@
+/* Sign in, create an account, set a new password, and the admin token form. */
+
+.account {
+  max-width: 440px;
+}
+
+.account__form {
+  display: grid;
+  gap: 18px;
+  margin-top: 8px;
+}
+
+.account__field .input {
+  margin-top: 0;
+}
+
+.account__hint {
+  margin-top: 6px;
+}
+
+.account__error {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--positive);
+}
+
+.account__done {
+  padding: 20px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+}
+
+.account__done p + p {
+  margin-top: 8px;
+}
+
+.account__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+
+.account__switch {
+  margin-top: 24px;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field .input {
+  padding-right: 72px;
+}
+
+.password-field__toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}

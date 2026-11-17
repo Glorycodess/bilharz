@@ -281,3 +281,24 @@
     transition: none;
   }
 }
+
+.sidebar__account {
+  margin-top: 16px;
+  padding: 18px 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.sidebar__signout {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sidebar__account-role {
+  font-size: 13px;
+  color: var(--grey);
+}

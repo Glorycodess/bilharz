@@ -187,6 +187,135 @@ test('export with a wrong token shows the error and keeps nothing', async ({ pag
   expect(kept).not.toContain('not-the-token')
 })
 
+// Accounts, through the screens ---------------------------------------------
+
+const GRACE = { name: 'Grace Mensah', email: 'grace@example.org', password: 'grace first passphrase' }
+
+async function signInThroughTheForm(page, who) {
+  await page.goto('/sign-in')
+  await page.getByLabel('Email').fill(who.email)
+  await page.getByLabel('Password', { exact: true }).fill(who.password)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page).toHaveURL(/\/queue$/)
+}
+
+test('the first admin is made on the Admin page with the admin token', async ({ page }) => {
+  const owner = { name: 'Project Owner', email: 'owner@example.org', password: 'owner long passphrase' }
+  await page.goto('/sign-up')
+  await page.getByLabel('Name').fill(owner.name)
+  await page.getByLabel('Email').fill(owner.email)
+  await page.getByLabel('Password', { exact: true }).fill(owner.password)
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('status')).toContainText('An admin has to approve your account')
+
+  await page.goto('/admin')
+  await page.getByLabel('Admin token').fill('not-the-token')
+  await page.getByRole('button', { name: 'Make me an admin' }).click()
+  await expect(page.getByRole('alert')).toHaveText("That admin token isn't valid.")
+  await expect(page.getByLabel('Admin token')).toHaveValue('')
+
+  await page.getByLabel('Admin token').fill(ADMIN_TOKEN)
+  await page.getByRole('button', { name: 'Make me an admin' }).click()
+  await expect(page.getByRole('region', { name: 'Accounts' })).toContainText('owner@example.org')
+  // The menu now has Admin, and says who is signed in.
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await expect(page.getByRole('link', { name: 'Admin' })).toBeVisible()
+  await expect(page.locator('.sidebar__account')).toContainText('Project Owner')
+})
+
+test('a new reviewer waits for approval, an admin approves them, and they review under their name', async ({
+  page,
+  browser,
+}) => {
+  const samples = (await (await page.request.get('/api/samples')).json()).samples
+  const sample = samples.find((s) => s.decision === 'referred' && !s.review && s.id !== 'DT40').id
+
+  await page.goto(`/review/${sample}`)
+  await expect(page.getByRole('heading', { name: 'Sign in to record reviews' })).toBeVisible()
+  await page.getByRole('link', { name: 'Create an account' }).click()
+  await page.getByLabel('Name').fill(GRACE.name)
+  await page.getByLabel('Email').fill(GRACE.email)
+  await page.getByLabel('Password', { exact: true }).fill(GRACE.password)
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await page.getByRole('link', { name: 'Continue' }).click()
+  await expect(page).toHaveURL(new RegExp(`/review/${sample}$`))
+  await expect(page.getByRole('heading', { name: 'Waiting for approval' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Record decision' })).toHaveCount(0)
+
+  // The admin, in another browser, signs in through the form and approves Grace.
+  const adminContext = await browser.newContext()
+  const admin = await adminContext.newPage()
+  await signInThroughTheForm(admin, REVIEWER)
+  await admin.goto('/admin')
+  await admin.getByRole('button', { name: `Approve ${GRACE.name}` }).click()
+  await expect(admin.getByRole('row', { name: new RegExp(GRACE.name) })).toContainText('Approved')
+  await adminContext.close()
+
+  await page.reload()
+  await page.getByRole('button', { name: /^Healthy/ }).click()
+  await page.getByRole('button', { name: 'Record decision' }).click()
+  await expect(page.getByRole('status').filter({ hasText: `Decision recorded for ${sample}` })).toBeVisible()
+  await page.goto('/reviews')
+  await expect(page.locator('.reviews__table tbody tr', { hasText: sample })).toContainText(GRACE.name)
+})
+
+test('a reset link from the Admin page sets a new password once', async ({ page, browser }) => {
+  const adminContext = await browser.newContext()
+  const admin = await adminContext.newPage()
+  await signInThroughTheForm(admin, REVIEWER)
+  await admin.goto('/admin')
+  await admin.getByRole('button', { name: `Make a reset link for ${GRACE.name}` }).click()
+  const url = await admin.getByRole('textbox', { name: `Reset link for ${GRACE.name}` }).inputValue()
+  expect(url).toMatch(new RegExp(`^${APP_URL}/reset-password#token=[A-Za-z0-9_-]{43}$`))
+  await adminContext.close()
+
+  await page.goto(url)
+  await expect(page.getByLabel('New password')).toBeVisible()
+  expect(new URL(page.url()).hash).toBe('') // the token left the address bar at once
+  await page.getByLabel('New password').fill('grace second passphrase')
+  await page.getByRole('button', { name: 'Set password' }).click()
+  await expect(page.getByRole('status')).toContainText('Your password is changed')
+
+  // The old password no longer works; the new one does.
+  await page.goto('/sign-in')
+  await page.getByLabel('Email').fill(GRACE.email)
+  await page.getByLabel('Password', { exact: true }).fill(GRACE.password)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page.getByRole('alert')).toHaveText('The email or password is wrong.')
+  await signInThroughTheForm(page, { ...GRACE, password: 'grace second passphrase' })
+
+  // The link works once.
+  await page.goto(url)
+  await page.getByLabel('New password').fill('grace third passphrase')
+  await page.getByRole('button', { name: 'Set password' }).click()
+  await expect(page.getByRole('alert')).toContainText('not valid or has expired')
+})
+
+test('inside another page, signing in is offered in a new tab', async ({ page }) => {
+  // about:blank is another origin than the app, as huggingface.co is.
+  await page.setContent(`<iframe src="${APP_URL}/review/DT40" width="1200" height="900"></iframe>`)
+  const frame = page.frameLocator('iframe')
+  const link = frame.getByRole('link', { name: 'Open Bilharz in a new tab' })
+  await expect(link).toBeVisible()
+  await expect(link).toHaveAttribute('target', '_blank')
+  await expect(link).toHaveAttribute('href', `${APP_URL}/sign-in?next=%2Freview%2FDT40`)
+  await expect(frame.getByRole('button', { name: 'Record decision' })).toHaveCount(0)
+
+  await page.setContent(`<iframe src="${APP_URL}/sign-in" width="1200" height="900"></iframe>`)
+  await expect(page.frameLocator('iframe').getByRole('link', { name: 'Open Bilharz in a new tab' })).toBeVisible()
+  await expect(page.frameLocator('iframe').getByLabel('Password')).toHaveCount(0)
+})
+
+test('signing out from the menu brings back the sign-in prompt', async ({ page }) => {
+  await signInThroughTheForm(page, { ...GRACE, password: 'grace second passphrase' })
+  await page.goto('/reviews')
+  await expect(page.locator('.reviews__table')).toBeVisible()
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await expect(page.getByRole('heading', { name: 'Sign in to see the reviews' })).toBeVisible()
+  await expect(page.locator('.reviews__table')).toHaveCount(0)
+})
+
 test('uploading the real DT40 sample gives a result with its timing', async ({ page }) => {
   test.skip(!hasDt40, 'run scripts/fetch_samples.py DT40 first')
   test.setTimeout(180_000)

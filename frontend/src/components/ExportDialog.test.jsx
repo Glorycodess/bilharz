@@ -58,6 +58,19 @@ describe('ExportDialog', () => {
     expect(storedAnywhere()).toBe(false)
   })
 
+  it('lets a signed-in admin download without a token', async () => {
+    fetchMock.mockResolvedValue(new Response('review_id\n', { status: 200 }))
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:csv'), revokeObjectURL: vi.fn() }))
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const user = userEvent.setup()
+    render(<ExportDialog admin />)
+    await user.click(screen.getByRole('button', { name: 'Export CSV' }))
+    expect(screen.queryByLabelText('Admin token')).toBeNull()
+    expect(screen.getByText(/Keep the file private/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Download' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/reviews.csv', { headers: {} }))
+  })
+
   it('clears a typed token when cancelled', async () => {
     const user = userEvent.setup()
     render(<ExportDialog />)

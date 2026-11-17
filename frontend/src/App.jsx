@@ -9,6 +9,10 @@ import Queue from './pages/Queue.jsx'
 import Performance from './pages/Performance.jsx'
 import Reviews from './pages/Reviews.jsx'
 import Privacy from './pages/Privacy.jsx'
+import SignIn from './pages/SignIn.jsx'
+import SignUp from './pages/SignUp.jsx'
+import ResetPassword from './pages/ResetPassword.jsx'
+import Admin from './pages/Admin.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 function ScrollToTop() {
@@ -33,6 +37,10 @@ export default function App() {
           <Route path="/reviews" element={<Reviews />} />
           <Route path="/performance" element={<Performance />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/sign-in" element={<SignIn />} />
+          <Route path="/sign-up" element={<SignUp />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

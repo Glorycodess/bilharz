@@ -127,18 +127,3 @@
   color: var(--grey);
   overflow-wrap: anywhere;
 }
-
-.result__code-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  font-weight: 600;
-  color: var(--ink);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.result__code {
-  margin-top: 12px;
-}

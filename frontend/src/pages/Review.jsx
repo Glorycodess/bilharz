@@ -8,7 +8,7 @@ import EggGuide from '../components/EggGuide.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
-import ReviewCodeGate from '../components/ReviewCodeGate.jsx'
+import ReviewerGate from '../components/ReviewerGate.jsx'
 import TileCard from '../components/TileCard.jsx'
 import SampleNotFound from './SampleNotFound.jsx'
 import './Review.css'
@@ -46,7 +46,7 @@ function ReviewSample({ id, editing }) {
   // right after this page recorded the review, so its confirmation stays.
   const alreadyReviewed = !editing && current !== null && save.status !== 'saved'
   // Load the current review into the form, and again if it changes (after a 409).
-  // Wait while its note is hidden (no review code yet), or saving would erase it.
+  // Wait while its note is hidden (not signed in as a reviewer yet), or saving would erase it.
   if (amending && !current.detailsHidden && prefilledFrom !== current.id) {
     setPrefilledFrom(current.id)
     setChoice(current.verdict)
@@ -127,7 +127,7 @@ function ReviewSample({ id, editing }) {
 
         <div className="review__side">
           <EggGuide />
-          <ReviewCodeGate>
+          <ReviewerGate purpose="record reviews">
             {alreadyReviewed ? (
               <AlreadyReviewed id={id} review={current} error={save.error} />
             ) : (
@@ -216,7 +216,7 @@ function ReviewSample({ id, editing }) {
                 )}
               </aside>
             )}
-          </ReviewCodeGate>
+          </ReviewerGate>
         </div>
       </div>
     </div>

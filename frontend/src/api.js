@@ -63,38 +63,19 @@ function request(path, options) {
   return inFlight.get(key)
 }
 
-// The review access code, when the server asks for one. Kept in this
-// module's memory only (never in storage), so it lasts until the tab reloads.
-let reviewCode = null
-let reviewCodeProblem = null
+// The signed-in account, as last reported by the server (null: nobody). The
+// session itself is an HttpOnly cookie: this file never sees or keeps it.
+let knownAccount = null
 
-export function hasReviewCode() {
-  return reviewCode !== null
-}
-
-// Why the code was last rejected, for the code form ("That review code isn't valid.").
-export function reviewCodeError() {
-  return reviewCodeProblem
-}
-
-export function setReviewCode(code) {
-  reviewCode = code
-  reviewCodeProblem = null
-  dataChanged()
-}
-
-function reviewHeaders() {
-  return reviewCode ? { 'X-Review-Code': reviewCode } : {}
-}
-
-// A review request was refused for its code: forget the code and ask again.
-async function withReviewCode(call) {
+// A review request refused because the session ended (8 hours idle, 7 days,
+// signed out elsewhere, or disabled): ask the server again who is signed in,
+// once, so the pages show the sign-in prompt instead of an error.
+async function withSession(call) {
   try {
     return await call()
   } catch (error) {
-    if (error.status === 403) {
-      reviewCode = null
-      reviewCodeProblem = error.message
+    if ((error.status === 401 || error.status === 403) && knownAccount !== null) {
+      knownAccount = null
       dataChanged()
     }
     throw error
@@ -187,7 +168,7 @@ function toReview(r) {
     // Who recorded it: null for reviews from before accounts (or when hidden).
     reviewerName: r.reviewer_name ?? null,
     supersedes: r.supersedes ?? null,
-    // The server withheld the note and tester code (review code required, not sent).
+    // The server withheld the note and reviewer (not signed in as an approved reviewer).
     detailsHidden: r.details_hidden ?? false,
   }
 }
@@ -234,7 +215,6 @@ export async function getConfig() {
     setting: current.label,
     defaultKey: body.default,
     settings: rules,
-    reviewCodeRequired: body.review_code_required,
   }
 }
 
@@ -251,9 +231,9 @@ export async function getQueue() {
 // Resolves to null for an unknown ID.
 export async function getSample(id) {
   try {
-    // Sent with the review code, if one was entered, so the review's note is included.
+    // The session cookie goes with it, so an approved reviewer also gets the note.
     const path = `/api/samples/${encodeURIComponent(id)}${await settingQuery()}`
-    return toResult(await request(path, { headers: reviewHeaders() }))
+    return toResult(await request(path))
   } catch (error) {
     if (error.status === 404) return null
     throw error
@@ -263,7 +243,7 @@ export async function getSample(id) {
 // Reviews, newest first, with Bilharz's own decision for each sample.
 // 'current': one per sample, its latest version. 'all': every version.
 export async function getReviews(view = 'current') {
-  const body = await withReviewCode(() => request(`/api/reviews?view=${view}`, { headers: reviewHeaders() }))
+  const body = await withSession(() => request(`/api/reviews?view=${view}`))
   return body.map((r) => ({
     ...toReview(r),
     sampleId: r.sample_id,
@@ -272,21 +252,23 @@ export async function getReviews(view = 'current') {
   }))
 }
 
-// Every version of every review as a CSV file, saved by the browser. Needs the
-// admin token, which is sent once and not kept anywhere.
-export async function downloadReviewsCsv(adminToken) {
+// Every version of every review as a CSV file, saved by the browser. A signed-in
+// admin needs nothing more; anyone else needs the admin token, which is sent
+// once and not kept anywhere.
+export async function downloadReviewsCsv(adminToken = null) {
   let res
   try {
-    res = await fetch('/api/reviews.csv', { headers: { 'X-Admin-Token': adminToken } })
+    res = await fetch('/api/reviews.csv', { headers: adminToken ? { 'X-Admin-Token': adminToken } : {} })
   } catch {
     throw unreachable()
   }
   if (res.status === 403) {
     const body = await res.json().catch(() => null)
     const off = typeof body?.detail === 'string' && body.detail.includes('turned off')
-    throw new ApiError(off ? 'Export is turned off on this server: no admin token is set.' : "That token isn't valid.", {
-      status: 403,
-    })
+    let message = "That token isn't valid."
+    if (off) message = 'Export is turned off on this server: no admin token is set.'
+    else if (!adminToken) message = 'Only an admin can export reviews.'
+    throw new ApiError(message, { status: 403 })
   }
   if (!res.ok) throw errorFor(res.status, await res.json().catch(() => null))
   const url = URL.createObjectURL(await res.blob())
@@ -301,15 +283,108 @@ export async function downloadReviewsCsv(adminToken) {
 
 // A new review, or, with `supersedes` (the current review's id), a new version of it.
 export async function postReview(id, { verdict, note, supersedes = null }) {
-  const body = await withReviewCode(() =>
+  const body = await withSession(() =>
     request(`/api/reviews/${encodeURIComponent(id)}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...reviewHeaders() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ verdict, note: note || null, supersedes }),
     }),
   )
   dataChanged()
   return body
+}
+
+// Accounts -----------------------------------------------------------------
+
+function toAccount(a) {
+  if (!a) return null
+  return {
+    id: a.id,
+    name: a.name,
+    email: a.email,
+    role: a.role,
+    status: a.status,
+    canReview: a.status === 'approved',
+    isAdmin: a.status === 'approved' && a.role === 'admin',
+  }
+}
+
+function toListedAccount(a) {
+  return { ...toAccount(a), createdAt: a.created_at, approvedAt: a.approved_at ?? null, resetLinkActive: a.reset_link_active }
+}
+
+function post(path, data) {
+  return request(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: data === undefined ? undefined : JSON.stringify(data),
+  })
+}
+
+// Who is signed in: an account (pending ones included), or null.
+export async function getMe() {
+  const body = await request('/api/auth/me')
+  knownAccount = toAccount(body.account)
+  return knownAccount
+}
+
+// Each of these changes who is signed in, so every view reloads.
+async function changingSession(call) {
+  const result = await call()
+  dataChanged()
+  return result
+}
+
+export function signUp({ name, email, password }) {
+  return changingSession(async () => toAccount(await post('/api/auth/signup', { name, email, password })))
+}
+
+export function signIn({ email, password }) {
+  return changingSession(async () => toAccount(await post('/api/auth/signin', { email, password })))
+}
+
+export function signOut() {
+  return changingSession(() => send('/api/auth/signout', { method: 'POST' }).catch(() => null))
+}
+
+// A new password from an admin's one-time reset link.
+export function resetPassword({ token, password }) {
+  return changingSession(() =>
+    send('/api/auth/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password }),
+    }),
+  )
+}
+
+// Become an admin with the admin token (the first admin, or the way back in).
+// The token is sent once and not kept.
+export function claimAdmin(adminToken) {
+  return changingSession(async () =>
+    toAccount(
+      await request('/api/admin/claim', { method: 'POST', headers: { 'X-Admin-Token': adminToken } }),
+    ),
+  )
+}
+
+export async function getAccounts() {
+  return (await request('/api/admin/accounts')).map(toListedAccount)
+}
+
+function changeAccount(id, action, data) {
+  return changingSession(async () => toListedAccount(await post(`/api/admin/accounts/${id}/${action}`, data)))
+}
+
+export const approveAccount = (id) => changeAccount(id, 'approve')
+export const disableAccount = (id) => changeAccount(id, 'disable')
+export const setAccountRole = (id, role) => changeAccount(id, 'role', { role })
+
+// A one-time link (valid for an hour) for the account's owner to set a new password.
+export async function makeResetLink(id) {
+  const body = await post(`/api/admin/accounts/${id}/reset-link`)
+  dataChanged()
+  return { url: body.url, expiresAt: body.expires_at }
 }
 
 // Upload one sample's images. Reports upload progress (0–1), then `onUploaded`

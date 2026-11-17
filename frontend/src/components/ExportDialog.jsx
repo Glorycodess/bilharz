@@ -3,9 +3,10 @@ import { downloadReviewsCsv } from '../api.js'
 import { DownloadIcon } from './Icons.jsx'
 import './ExportDialog.css'
 
-// "Export CSV": asks for the admin token, downloads the file, then forgets the
-// token. It is never written to storage or cookies.
-export default function ExportDialog() {
+// "Export CSV". A signed-in admin (`admin`) downloads straight away; anyone else
+// needs the admin token, which is used for the download, then forgotten. It is
+// never written to storage or cookies. The server checks both.
+export default function ExportDialog({ admin = false }) {
   const dialog = useRef(null)
   const [token, setToken] = useState('')
   const [status, setStatus] = useState({ busy: false, error: null })
@@ -18,9 +19,9 @@ export default function ExportDialog() {
 
   async function onSubmit(event) {
     event.preventDefault()
-    if (!token || status.busy) return
+    if ((!admin && !token) || status.busy) return
     setStatus({ busy: true, error: null })
-    const sending = token
+    const sending = admin ? null : token
     setToken('')
     try {
       await downloadReviewsCsv(sending)
@@ -47,23 +48,29 @@ export default function ExportDialog() {
             Export reviews
           </h2>
           <p className="muted small export__text">
-            Downloads every review and its earlier versions as a CSV file. The admin token is used for this download
-            only and is not saved.
+            Downloads every review and its earlier versions, with each reviewer&rsquo;s name, as a CSV file.{' '}
+            {admin
+              ? 'Keep the file private: it holds reviewers’ names and notes.'
+              : 'Only admins can export. The admin token is used for this download only and is not saved.'}
           </p>
-          <label className="field-label" htmlFor="admin-token">
-            Admin token
-          </label>
-          <input
-            id="admin-token"
-            className="input export__input"
-            type="password"
-            autoComplete="off"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            aria-invalid={status.error ? true : undefined}
-            aria-describedby={status.error ? 'export-error' : undefined}
-            disabled={status.busy}
-          />
+          {!admin && (
+            <>
+              <label className="field-label" htmlFor="admin-token">
+                Admin token
+              </label>
+              <input
+                id="admin-token"
+                className="input export__input"
+                type="password"
+                autoComplete="off"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                aria-invalid={status.error ? true : undefined}
+                aria-describedby={status.error ? 'export-error' : undefined}
+                disabled={status.busy}
+              />
+            </>
+          )}
           {status.error && (
             <p className="export__error" id="export-error" role="alert">
               {status.error}
@@ -73,7 +80,11 @@ export default function ExportDialog() {
             <button type="button" className="btn btn--outline" onClick={close}>
               Cancel
             </button>
-            <button type="submit" className="btn btn--primary export__download" disabled={!token || status.busy}>
+            <button
+              type="submit"
+              className="btn btn--primary export__download"
+              disabled={(!admin && !token) || status.busy}
+            >
               {status.busy ? 'Downloading…' : 'Download'}
             </button>
           </div>

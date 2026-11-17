@@ -54,8 +54,9 @@ export default function FirstVisitGuide() {
           <Link to="/queue" className="text-link">
             Queue
           </Link>
-          . A technician opens one, looks at its 12 highest-scoring tiles, and records it as infected or healthy. A
-          review can be edited later, and every version is kept.
+          . A technician with a reviewer account, approved by an admin, opens one, looks at its 12 highest-scoring
+          tiles, and records it as infected or healthy under their name. A review can be edited later, and every
+          version is kept. Results and the queue are open to everyone.
         </p>
         <p className="guide__note muted small">Results support screening and are not a diagnosis.</p>
       </div>

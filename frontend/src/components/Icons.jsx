@@ -94,6 +94,16 @@ export function ShieldIcon(props) {
   )
 }
 
+export function UsersIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="9" cy="8.5" r="3.5" />
+      <path d="M3 19.5c.6-3.3 3-5 6-5s5.4 1.7 6 5" />
+      <path d="M15.5 5.2a3.5 3.5 0 0 1 0 6.6M17.5 14.8c1.8.6 3 2.2 3.5 4.7" />
+    </svg>
+  )
+}
+
 export function MenuIcon(props) {
   return (
     <svg {...base} {...props}>

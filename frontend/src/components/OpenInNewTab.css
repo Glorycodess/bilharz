@@ -1,0 +1,9 @@
+.new-tab {
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+}
+
+.new-tab__text {
+  max-width: 520px;
+}

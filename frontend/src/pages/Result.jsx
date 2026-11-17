@@ -8,7 +8,6 @@ import DecisionScale from '../components/DecisionScale.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
-import ReviewCodeGate from '../components/ReviewCodeGate.jsx'
 import StatBlock from '../components/StatBlock.jsx'
 import TileCard from '../components/TileCard.jsx'
 import VerdictMark from '../components/VerdictMark.jsx'
@@ -208,25 +207,18 @@ function ReviewerVerdict({ id, review, count }) {
   )
 }
 
-// The server needs a review code to show notes. Entering it here keeps it for
-// this tab, and the result reloads with the note.
+// The note and the reviewer's name are for approved reviewers only; the verdict
+// is public. After signing in, the result comes back here with the note.
 function HiddenNote() {
-  const [asking, setAsking] = useState(false)
+  const { pathname } = useLocation()
   return (
     <div className="result__verdict-note">
       <p>
-        Note hidden. Enter the review code to see it.{' '}
-        {!asking && (
-          <button type="button" className="result__code-link" onClick={() => setAsking(true)}>
-            Enter code
-          </button>
-        )}
+        The note and the reviewer&rsquo;s name are shown to approved reviewers.{' '}
+        <Link to={`/sign-in?next=${encodeURIComponent(pathname)}`} className="text-link">
+          Sign in
+        </Link>
       </p>
-      {asking && (
-        <div className="result__code">
-          <ReviewCodeGate>{null}</ReviewCodeGate>
-        </div>
-      )}
     </div>
   )
 }

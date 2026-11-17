@@ -8,7 +8,6 @@ import Queue from './Queue.jsx'
 const CONFIG = {
   default: 'safety',
   settings: { safety: { tile_threshold: 0.95, clear_below: 1, flag_above: 35, rule: '' } },
-  review_code_required: false,
 }
 
 const QUEUE = {

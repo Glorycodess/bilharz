@@ -1,13 +1,13 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { getReviews } from '../api.js'
+import { getMe, getReviews } from '../api.js'
 import { pending, useApi } from '../useApi.js'
 import { formatFull, formatRelative, reviewerLabel } from '../format.js'
 import ExportDialog from '../components/ExportDialog.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import PageState from '../components/PageState.jsx'
-import ReviewCodeGate from '../components/ReviewCodeGate.jsx'
+import ReviewerGate from '../components/ReviewerGate.jsx'
 import SearchField from '../components/SearchField.jsx'
 import Toolbar from '../components/Toolbar.jsx'
 import VerdictMark from '../components/VerdictMark.jsx'
@@ -25,9 +25,9 @@ const getAllVersions = () => getReviews('all')
 export default function Reviews() {
   return (
     <div className="container page">
-      <ReviewCodeGate header={<PageHeader title="Reviews" />}>
+      <ReviewerGate header={<PageHeader title="Reviews" />} purpose="see the reviews">
         <ReviewsTable />
-      </ReviewCodeGate>
+      </ReviewerGate>
     </div>
   )
 }
@@ -37,6 +37,7 @@ export default function Reviews() {
 function ReviewsTable() {
   const current = useApi(getReviews)
   const versions = useApi(getAllVersions)
+  const isAdmin = useApi(getMe).data?.isAdmin ?? false
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(() => new Set())
@@ -109,7 +110,7 @@ function ReviewsTable() {
             end={
               <>
                 <SearchField id="reviews-search" value={search} onChange={setSearch} />
-                <ExportDialog />
+                <ExportDialog admin={isAdmin} />
               </>
             }
           />

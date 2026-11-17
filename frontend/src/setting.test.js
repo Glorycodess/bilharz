@@ -6,7 +6,6 @@ const CONFIG = {
     safety: { tile_threshold: 0.95, clear_below: 1, flag_above: 35, rule: '' },
     efficiency: { tile_threshold: 0.99, clear_below: 1, flag_above: 12, rule: '' },
   },
-  review_code_required: false,
 }
 
 const SAMPLE = {

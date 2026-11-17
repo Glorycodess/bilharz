@@ -1,0 +1,76 @@
+.admin__table th[scope='row'] {
+  font-weight: 600;
+}
+
+.admin__email {
+  word-break: break-all;
+}
+
+.admin__actions-cell {
+  text-align: right;
+}
+
+.admin__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin__button {
+  height: 34px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.admin__button--danger {
+  color: var(--positive);
+}
+
+.admin__status {
+  font-weight: 600;
+}
+
+.admin__status--pending {
+  color: var(--referred);
+}
+
+.admin__status--disabled {
+  color: var(--grey);
+}
+
+.admin__error {
+  margin-bottom: 16px;
+}
+
+.admin__note {
+  max-width: 760px;
+  margin-top: 16px;
+}
+
+.admin__link {
+  margin-bottom: 24px;
+  padding: 20px 24px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-panel);
+}
+
+.admin__link-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.admin__link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.admin__link-row .input {
+  flex: 1 1 320px;
+  min-width: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+}

@@ -1,9 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { countWaiting, getConfig, getQueue } from '../api.js'
+import { countWaiting, getConfig, getMe, getQueue, signOut } from '../api.js'
 import { useApi } from '../useApi.js'
 import Logo from './Logo.jsx'
-import { ChartIcon, ClipboardCheckIcon, CloseIcon, HomeIcon, ListIcon, MenuIcon, ShieldIcon, UploadIcon } from './Icons.jsx'
+import {
+  ChartIcon,
+  ClipboardCheckIcon,
+  CloseIcon,
+  HomeIcon,
+  ListIcon,
+  MenuIcon,
+  ShieldIcon,
+  UploadIcon,
+  UsersIcon,
+} from './Icons.jsx'
 import './Header.css'
 
 const NAV = [
@@ -14,6 +24,8 @@ const NAV = [
   { to: '/performance', label: 'Performance', Icon: ChartIcon, match: ['/performance'] },
   { to: '/privacy', label: 'Privacy', Icon: ShieldIcon, match: ['/privacy'] },
 ]
+// Shown to admins only. The server refuses admin actions to anyone else.
+const ADMIN_NAV = { to: '/admin', label: 'Admin', Icon: UsersIcon, match: ['/admin'] }
 
 const FOCUSABLE = 'a[href], button:not([disabled])'
 
@@ -22,7 +34,9 @@ export default function Header() {
   const { pathname } = useLocation()
   const queue = useApi(getQueue).data
   const config = useApi(getConfig).data
+  const account = useApi(getMe).data ?? null
   const waiting = queue ? countWaiting(queue) : null
+  const nav = account?.isAdmin ? [...NAV, ADMIN_NAV] : NAV
 
   const [open, setOpen] = useState(false)
   const [openedOn, setOpenedOn] = useState(pathname)
@@ -133,7 +147,7 @@ export default function Header() {
 
         <nav aria-label="App">
           <ul className="sidebar__nav">
-            {NAV.map(({ to, label, Icon, match, badge }) => {
+            {nav.map(({ to, label, Icon, match, badge }) => {
               const active = match.some((p) => pathname === p || pathname.startsWith(`${p}/`))
               return (
                 <li key={to}>
@@ -156,6 +170,35 @@ export default function Header() {
             })}
           </ul>
         </nav>
+
+        <div className="sidebar__account">
+          {account ? (
+            <>
+              <p className="sidebar__setting-label">Signed in as</p>
+              <p className="sidebar__setting-value">
+                <span>{account.name}</span>
+                <button type="button" className="text-link sidebar__change sidebar__signout" onClick={() => signOut()}>
+                  Sign out
+                </button>
+              </p>
+              <p className="sidebar__account-role">
+                {account.status === 'pending' ? 'Waiting for approval' : account.role === 'admin' ? 'Admin' : 'Reviewer'}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="sidebar__setting-label">Reviewers</p>
+              <p className="sidebar__setting-value">
+                <Link to={`/sign-in?next=${encodeURIComponent(pathname)}`} className="text-link">
+                  Sign in
+                </Link>
+                <Link to="/sign-up" className="text-link sidebar__change">
+                  Create an account
+                </Link>
+              </p>
+            </>
+          )}
+        </div>
 
         <div className="sidebar__setting">
           <p className="sidebar__setting-label">Decision setting</p>
