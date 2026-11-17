@@ -16,12 +16,13 @@ database is rebuilt from it at start-up.
 """
 import json
 import logging
-import os
 import sqlite3
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+
+from .storage import replace_file
 
 log = logging.getLogger("bilharz")
 
@@ -120,12 +121,7 @@ class ReviewJournal:
 
     @staticmethod
     def _replace(path: Path, data: bytes) -> None:
-        temporary = path.with_name(path.name + ".tmp")
-        with open(temporary, "wb") as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(temporary, path)
+        replace_file(path, data)
 
     def _write(self, lines: list[str]) -> None:
         self._replace(self.path, "".join(line + "\n" for line in lines).encode("utf-8", "surrogateescape"))

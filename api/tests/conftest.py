@@ -6,20 +6,35 @@ from dataclasses import replace
 # Importing `server` builds the default app, which opens the reviews database.
 # Point it at a throwaway file first, so tests never touch real reviews.
 os.environ["BILHARZ_REVIEWS_DB"] = os.path.join(tempfile.mkdtemp(prefix="bilharz-tests-"), "reviews.db")
-# Tests choose their own secrets; ignore any set in the shell.
-os.environ.pop("BILHARZ_REVIEW_CODE", None)
-os.environ.pop("BILHARZ_ADMIN_TOKEN", None)
+# Tests choose their own secrets and storage; ignore any set in the shell.
+for name in ("BILHARZ_ADMIN_TOKEN", "BILHARZ_ACCOUNTS_DIR", "BILHARZ_REVIEWS_DIR", "BILHARZ_COOKIE_SECURE"):
+    os.environ.pop(name, None)
 
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from bilharz.accounts import Account
+from bilharz.routes.deps import current_account
 from bilharz.scoring import load_scorer
 from bilharz.settings import load_settings
 from server import create_app
 
 ADMIN_TOKEN = "test-admin-token"
 ORIGIN = "http://localhost:5173"
+
+# An approved reviewer, for tests about reviews rather than about signing in.
+# Tests about accounts sign in for real (tests/test_accounts.py).
+REVIEWER = Account(
+    id=1, name="Test Reviewer", email="reviewer@example.org", password_hash="not-a-hash",
+    role="reviewer", status="approved", created_at="2026-11-01T09:00:00+00:00",
+)
+
+
+def sign_in_as(client, account=REVIEWER):
+    """Stand in for the session: the server treats `account` as signed in."""
+    client.app.dependency_overrides[current_account] = lambda: account
+    return client
 
 
 @pytest.fixture(scope="session")
@@ -45,15 +60,22 @@ def client(app):
 
 
 @pytest.fixture()
+def reviewer_client(make_client):
+    with make_client(as_reviewer=True) as c:
+        yield c
+
+
+@pytest.fixture()
 def make_client(base_settings, scorer, tmp_path, monkeypatch):
     """A client for an app with some settings changed, e.g. lower upload limits."""
 
     # create_app sets Pillow's global pixel limit; put it back after the test.
     monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", Image.MAX_IMAGE_PIXELS)
 
-    def make(**changes):
+    def make(as_reviewer=False, **changes):
         settings = replace(base_settings, reviews_db=tmp_path / "reviews.db", **changes)
-        return TestClient(create_app(settings, scorer=scorer))
+        client = TestClient(create_app(settings, scorer=scorer))
+        return sign_in_as(client) if as_reviewer else client
 
     return make
 

@@ -69,7 +69,7 @@ def write_journal(tmp_path, lines):
 
 
 def test_a_second_first_review_is_409_and_not_stored(make_client):
-    with make_client() as c:
+    with make_client(as_reviewer=True) as c:
         first = c.post("/api/reviews/DT40", json={"verdict": "healthy"})
         assert first.status_code == 201
         again = c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "my own look"})
@@ -159,20 +159,27 @@ def test_a_reviewer_sent_in_the_body_is_refused(make_client, extra):
         assert c.get("/api/reviews").json() == []
 
 
-def test_without_a_session_the_reviewer_is_unknown(make_client):
+def test_without_a_session_nothing_is_recorded(make_client):
     with make_client() as c:
-        assert c.post("/api/reviews/DT40", json={"verdict": "healthy"}).json()["reviewer_name"] is None
+        assert c.post("/api/reviews/DT40", json={"verdict": "healthy"}).status_code == 401
+        assert c.get("/api/reviews.csv", headers=ADMIN).text.count("\n") == 1  # the header only
+
+
+def test_reviews_from_before_accounts_show_an_unknown_reviewer(start, tmp_path):  # noqa: F811
+    write_journal(tmp_path, [old_line(1)])
+    with start() as c:
+        assert c.get("/api/reviews").json()[0]["reviewer_name"] is None
         row = list(csv.reader(io.StringIO(c.get("/api/reviews.csv", headers=ADMIN).text)))[1]
         assert row[-2:] == ["", "unknown"]
 
 
-def test_the_reviewer_is_hidden_with_the_note_without_the_review_code(make_client):
-    with signed_in(make_client(review_code="ward-7-code")) as c:
-        c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "Spine"}, headers={"X-Review-Code": "ward-7-code"})
+def test_the_reviewer_is_hidden_with_the_note_from_the_public(make_client):
+    with signed_in(make_client()) as c:
+        c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "Spine"})
+        assert c.get("/api/samples/DT40").json()["review"]["reviewer_name"] == "Ada Obi"
+        c.app.dependency_overrides.clear()  # a visitor who is not signed in
         hidden = c.get("/api/samples/DT40").json()["review"]
         assert hidden["reviewer_name"] is None and hidden["details_hidden"] is True
-        shown = c.get("/api/samples/DT40", headers={"X-Review-Code": "ward-7-code"}).json()["review"]
-        assert shown["reviewer_name"] == "Ada Obi"
 
 
 def test_a_reviewer_name_that_looks_like_a_formula_is_escaped_in_the_csv(make_client):
@@ -200,12 +207,13 @@ def test_journal_lines_from_the_deployed_version_are_all_read(start, tmp_path): 
     assert journal_lines(tmp_path) == lines
 
 
-def test_a_review_without_a_reviewer_is_written_as_the_deployed_version_writes_it(start, tmp_path):  # noqa: F811
-    """So a rollback to the deployed version reads every review recorded before sign-in exists."""
+def test_a_review_without_a_reviewer_is_written_as_the_deployed_version_writes_it(tmp_path):
+    """So a rollback to the deployed version reads every review from before accounts.
+    (Through the API every new review has a reviewer; the store can still write one without.)"""
     write_journal(tmp_path, [old_line(1, sample_id="DT03")])
-    with start() as c:
-        first = c.post("/api/reviews/DT40", json={"verdict": "healthy"}).json()
-        c.post("/api/reviews/DT40", json={"verdict": "infected", "supersedes": first["id"]})
+    store = ReviewStore(tmp_path / "local.db", ReviewJournal(tmp_path / "bucket"), False)
+    first = store.add("DT40", "healthy", None, None)
+    store.add("DT40", "infected", None, None, supersedes=first["id"])
     lines = journal_lines(tmp_path)
     assert len(lines) == 3
     assert all(set(json.loads(line)) == set(REQUIRED) for line in lines)

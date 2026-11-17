@@ -1,4 +1,7 @@
-"""Technician reviews: record, list, export and clear."""
+"""Technician reviews: record, list, export and clear.
+
+Recording and listing need a signed-in, approved reviewer; export and clear
+need an admin (or the admin token)."""
 import csv
 import io
 from typing import Literal
@@ -8,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from .. import schemas
 from ..reviews import ReviewConflict, ReviewExists, ReviewNotFound
 from ..triage import decide
-from .deps import Reviewer, current_reviewer, require_admin, require_known, require_review_code, state
+from .deps import Reviewer, require_admin, require_known, require_reviewer, state
 
 router = APIRouter()
 
@@ -17,9 +20,9 @@ router = APIRouter()
     "/reviews/{sample_id}",
     response_model=schemas.ReviewOut,
     status_code=201,
-    dependencies=[Depends(require_review_code)],
     responses={
-        403: {"description": "Review code required or wrong"},
+        401: {"description": "Not signed in"},
+        403: {"description": "Account not approved yet"},
         404: {"description": "Unknown sample"},
         409: {"description": "The sample already has a review, or `supersedes` is no longer the current one"},
         422: {"description": "Invalid review, or `supersedes` is not a review of this sample"},
@@ -29,7 +32,7 @@ def add_review(
     request: Request,
     sample_id: str,
     review: schemas.ReviewIn,
-    reviewer: Reviewer | None = Depends(current_reviewer),
+    reviewer: Reviewer = Depends(require_reviewer),
 ):
     """Record a sample's review. A sample has one review: to change its verdict, send
     `supersedes` with the id of its current review, and a new version is added while
@@ -41,10 +44,10 @@ def add_review(
             sample_id,
             review.verdict,
             note or None,
-            review.tester_code,
+            None,  # tester codes were for anonymous reviews; new reviews have a reviewer
             review.supersedes,
-            reviewer_id=reviewer.id if reviewer else None,
-            reviewer_name=reviewer.name if reviewer else None,
+            reviewer_id=reviewer.id,
+            reviewer_name=reviewer.name,
         )
     except ReviewExists:
         raise HTTPException(409, "This sample already has a review. Edit the existing review instead.") from None
@@ -81,8 +84,8 @@ def _reviews_with_decisions(
 @router.get(
     "/reviews",
     response_model=list[schemas.ReviewListItem],
-    dependencies=[Depends(require_review_code)],
-    responses={403: {"description": "Review code required or wrong"}},
+    dependencies=[Depends(require_reviewer)],
+    responses={401: {"description": "Not signed in"}, 403: {"description": "Account not approved yet"}},
 )
 def list_reviews(
     request: Request,
@@ -119,7 +122,7 @@ def _csv_safe(value):
     dependencies=[Depends(require_admin)],
     responses={
         200: {"content": {"text/csv": {}}, "description": "All reviews as CSV"},
-        403: {"description": "Missing or wrong admin token"},
+        403: {"description": "Not an admin, and no valid admin token"},
     },
 )
 def export_reviews(
@@ -128,8 +131,8 @@ def export_reviews(
     sample_id: str | None = None,
 ):
     """Every version of every review as a CSV download, newest first: the full history.
-    `reviewer` is "unknown" for reviews recorded before accounts. Needs the admin
-    token in X-Admin-Token."""
+    `reviewer` is "unknown" for reviews recorded before accounts. Needs a signed-in
+    admin, or the admin token in X-Admin-Token."""
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(CSV_FIELDS)
@@ -159,8 +162,8 @@ def export_reviews(
     "/reviews",
     response_model=schemas.Deleted,
     dependencies=[Depends(require_admin)],
-    responses={403: {"description": "Missing or wrong admin token"}},
+    responses={403: {"description": "Not an admin, and no valid admin token"}},
 )
 def clear_reviews(request: Request):
-    """Delete every review. Needs the admin token in X-Admin-Token."""
+    """Delete every review. Needs a signed-in admin, or the admin token in X-Admin-Token."""
     return dict(deleted=state(request).reviews.clear())

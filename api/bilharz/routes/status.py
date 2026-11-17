@@ -17,12 +17,13 @@ def health(request: Request):
         samples=len(app.samples),
         reviews_persistent=app.reviews.persistent,
         reviews_unreadable=app.reviews.unreadable,
+        accounts_writable=app.accounts.writable,
     )
 
 
 @router.get("/config", response_model=schemas.ConfigOut)
 def config(request: Request):
-    """Both decision settings with their rules, the default, and whether reviews need a code."""
+    """Both decision settings with their rules, and the default."""
     triage = state(request).triage
     return dict(
         default=triage.default,
@@ -30,5 +31,4 @@ def config(request: Request):
             name: dict(tile_threshold=r.tile_threshold, clear_below=r.clear_below, flag_above=r.flag_above, rule=r.describe())
             for name, r in triage.rules.items()
         },
-        review_code_required=bool(state(request).settings.review_code),
     )

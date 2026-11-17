@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from bilharz.reviews import ReviewJournal
 from server import create_app
 
-from .conftest import ADMIN_TOKEN
+from .conftest import ADMIN_TOKEN, sign_in_as
 
 
 @pytest.fixture()
@@ -17,10 +17,11 @@ def start(base_settings, scorer, tmp_path):
     database: as the Space starts after a restart."""
     starts = iter(range(1, 100))
 
-    def make(reviews_dir=tmp_path / "bucket", **changes):
+    def make(reviews_dir=tmp_path / "bucket", as_reviewer=True, **changes):
         db = tmp_path / f"local-{next(starts)}" / "reviews.db"
         settings = replace(base_settings, reviews_db=db, reviews_dir=reviews_dir, reviews_persistent=False, **changes)
-        return TestClient(create_app(settings, scorer=scorer))
+        client = TestClient(create_app(settings, scorer=scorer))
+        return sign_in_as(client) if as_reviewer else client
 
     return make
 
@@ -32,7 +33,7 @@ def journal_lines(tmp_path):
 def test_reviews_and_versions_survive_a_restart(start, tmp_path):
     with start() as c:
         assert c.get("/api/health").json()["reviews_persistent"] is True
-        first = c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "Spine on tile 1.", "tester_code": "T7"})
+        first = c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "Spine on tile 1."})
         c.post("/api/reviews/DT03", json={"verdict": "healthy"})
         c.post("/api/reviews/DT40", json={"verdict": "healthy", "supersedes": first.json()["id"]})
         before = c.get("/api/reviews?view=all").json()
@@ -130,11 +131,11 @@ def test_a_review_the_journal_could_not_take_is_not_stored(start, monkeypatch):
 
 def test_first_start_with_a_journal_keeps_existing_reviews(base_settings, scorer, tmp_path):
     db = tmp_path / "reviews.db"
-    with TestClient(create_app(replace(base_settings, reviews_db=db), scorer=scorer)) as c:
+    with sign_in_as(TestClient(create_app(replace(base_settings, reviews_db=db), scorer=scorer))) as c:
         c.post("/api/reviews/DT40", json={"verdict": "infected"})
         c.post("/api/reviews/DT03", json={"verdict": "healthy"})
     settings = replace(base_settings, reviews_db=db, reviews_dir=tmp_path / "bucket")
-    with TestClient(create_app(settings, scorer=scorer)) as c:
+    with sign_in_as(TestClient(create_app(settings, scorer=scorer))) as c:
         assert len(c.get("/api/reviews").json()) == 2
     assert [json.loads(line)["sample_id"] for line in journal_lines(tmp_path)] == ["DT40", "DT03"]
 

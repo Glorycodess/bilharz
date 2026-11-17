@@ -44,15 +44,20 @@ class Settings:
     batch_size: int = 64
     upload_timeout_seconds: float = 120.0
     # Read from the environment only; kept out of repr so it never reaches a log.
+    # The emergency fallback: it exports and deletes reviews, and lets a
+    # signed-in account make itself an admin (the first admin is made this way).
     admin_token: str | None = field(default=None, repr=False)
-    # Optional: when set, every review endpoint requires it in X-Review-Code.
-    review_code: str | None = field(default=None, repr=False)
     # Whether reviews_db survives a restart (true on a normal disk; false on
     # hosts with ephemeral storage). Reported by /api/health without a reviews_dir.
     reviews_persistent: bool = True
     # A directory on persistent storage (a mounted Storage Bucket) for the
     # reviews journal; reviews_db is then rebuilt from it on start.
     reviews_dir: Path | None = None
+    # The directory of accounts.jsonl: persistent storage, like reviews_dir.
+    accounts_dir: Path | None = None
+    # The session cookie is Secure (and named with the __Host- prefix) unless
+    # this is turned off, for a development server on plain http.
+    cookie_secure: bool = True
 
 
 def load_settings() -> Settings:
@@ -74,7 +79,9 @@ def load_settings() -> Settings:
         batch_size=_int("BILHARZ_BATCH_SIZE", 64),
         upload_timeout_seconds=float(os.environ.get("BILHARZ_UPLOAD_TIMEOUT_SECONDS") or 120),
         admin_token=os.environ.get("BILHARZ_ADMIN_TOKEN") or None,
-        review_code=os.environ.get("BILHARZ_REVIEW_CODE") or None,
         reviews_persistent=os.environ.get("BILHARZ_REVIEWS_PERSISTENT", "true").lower() in ("1", "true", "yes"),
         reviews_dir=_optional_path("BILHARZ_REVIEWS_DIR"),
+        # Next to the reviews journal unless set; without either, next to the database.
+        accounts_dir=_optional_path("BILHARZ_ACCOUNTS_DIR") or _optional_path("BILHARZ_REVIEWS_DIR"),
+        cookie_secure=os.environ.get("BILHARZ_COOKIE_SECURE", "true").lower() in ("1", "true", "yes"),
     )

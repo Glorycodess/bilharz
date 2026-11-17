@@ -7,3 +7,5 @@ python-multipart==0.0.32
 numpy==2.5.4
 pillow==13.0.0
 onnxruntime==1.31.0
+# Password hashing (Argon2id) for reviewer accounts.
+argon2-cffi==25.1.0

@@ -1,11 +1,11 @@
 """The stored samples: the queue, one sample's result, and its top tiles."""
 import re
 
-from fastapi import APIRouter, Header, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from .. import schemas
 from ..triage import decide
-from .deps import has_review_access, require_known, rule_for, state
+from .deps import Reviewer, current_reviewer, require_known, rule_for, state
 
 router = APIRouter()
 
@@ -32,18 +32,18 @@ def sample(
     request: Request,
     sample_id: str,
     setting: str | None = None,
-    x_review_code: str | None = Header(default=None),
+    reviewer: Reviewer | None = Depends(current_reviewer),
 ):
-    """One sample's result. With a review code configured, the review's note,
-    tester code and reviewer are only included when the code is sent; the
-    verdict always is."""
+    """One sample's result, open to everyone. The review's verdict is always
+    included; its note, tester code and reviewer only for a signed-in, approved
+    reviewer."""
     require_known(request, sample_id)
     rule = rule_for(request, setting)
     store = state(request).samples
     n = store.count(sample_id, rule)
     score, image, tile = store.highest(sample_id)
     review, review_count = state(request).reviews.history(sample_id)
-    if review and not has_review_access(request, x_review_code):
+    if review and reviewer is None:
         review = {**review, "note": None, "tester_code": None, "reviewer_name": None, "details_hidden": True}
     return dict(
         id=sample_id,

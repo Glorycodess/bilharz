@@ -5,6 +5,7 @@ use, so importing this module (tests, the Space entry point) has no side effects
 """
 import asyncio
 import logging
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -12,11 +13,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
+from bilharz.accounts import AccountStore
+from bilharz.clock import Clock
+from bilharz.ratelimit import RateLimiter
 from bilharz.reviews import ReviewJournal, ReviewStore
 from bilharz.routes import router
 from bilharz.samples import SampleStore, TileArchive
 from bilharz.scoring import Scorer, load_scorer
 from bilharz.security import UploadError, configure_pillow
+from bilharz.sessions import COOKIE_PLAIN, COOKIE_SECURE, SessionStore
 from bilharz.settings import Settings, load_settings
 from bilharz.triage import load_config
 
@@ -27,6 +32,10 @@ SECURITY_HEADERS = [
     (b"referrer-policy", b"no-referrer"),
     (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
 ]
+# Responses about accounts and reviews are never kept by a browser or proxy cache.
+NO_STORE_PATHS = ("/api/auth", "/api/admin", "/api/reviews")
+NO_STORE = [(b"cache-control", b"no-store")]
+UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 class SecurityHeaders:
@@ -45,7 +54,8 @@ class SecurityHeaders:
             nonlocal started
             if message["type"] == "http.response.start":
                 started = True
-                message["headers"] = list(message.get("headers", [])) + SECURITY_HEADERS
+                extra = NO_STORE if scope["path"].startswith(NO_STORE_PATHS) else []
+                message["headers"] = list(message.get("headers", [])) + SECURITY_HEADERS + extra
             await send(message)
 
         try:
@@ -58,11 +68,45 @@ class SecurityHeaders:
             await response(scope, receive, send_with_headers)
 
 
+class OriginCheck:
+    """Refuses a request that changes something (POST, PUT, PATCH, DELETE under
+    /api) when it comes from another site: a page elsewhere cannot use a
+    reviewer's session cookie (cross-site request forgery).
+
+    Browsers send an Origin header with every such request. It must be this
+    server's own origin or one of BILHARZ_ALLOWED_ORIGINS. A request with no
+    Origin (a script, not a browser) is allowed only if it carries no session
+    cookie, since without the cookie it has nothing to borrow."""
+
+    def __init__(self, app, allowed_origins: tuple[str, ...]):
+        self.app = app
+        self.allowed = set(allowed_origins)
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] not in UNSAFE_METHODS or not scope["path"].startswith("/api/"):
+            return await self.app(scope, receive, send)
+        headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope["headers"]}
+        origin = headers.get("origin")
+        own = f"{scope.get('scheme', 'http')}://{headers.get('host', '')}"
+        cookie = headers.get("cookie", "")
+        has_session = f"{COOKIE_SECURE}=" in cookie or f"{COOKIE_PLAIN}=" in cookie
+        if origin is None or origin == "null":
+            refused = has_session
+        else:
+            refused = origin != own and origin not in self.allowed
+        if refused:
+            response = JSONResponse({"detail": "This request came from another site and was refused."}, status_code=403)
+            return await response(scope, receive, send)
+        return await self.app(scope, receive, send)
+
+
 def create_app(settings: Settings | None = None, scorer: Scorer | None = None) -> FastAPI:
     """Build the API. Settings default to the environment's, and the scorer to
     the first available one; the Space passes its GPU scorer, tests pass stubs."""
     settings = settings or load_settings()
     configure_pillow(settings)
+    if os.environ.get("BILHARZ_REVIEW_CODE"):
+        log.warning("BILHARZ_REVIEW_CODE is set but no longer used: reviewing needs an approved reviewer account")
 
     app = FastAPI(
         title="Bilharz API",
@@ -75,6 +119,10 @@ def create_app(settings: Settings | None = None, scorer: Scorer | None = None) -
     app.state.tiles = TileArchive(settings.tiles_zip)
     journal = ReviewJournal(settings.reviews_dir) if settings.reviews_dir else None
     app.state.reviews = ReviewStore(settings.reviews_db, journal, settings.reviews_persistent)
+    app.state.clock = Clock()
+    app.state.accounts = AccountStore(settings.accounts_dir or settings.reviews_db.parent)
+    app.state.sessions = SessionStore(clock=app.state.clock)
+    app.state.limits = Limits(app.state.clock)
     app.state.scorer = scorer or load_scorer(settings)
     app.state.analysis_lock = asyncio.Lock()
 
@@ -97,10 +145,23 @@ def create_app(settings: Settings | None = None, scorer: Scorer | None = None) -
         CORSMiddleware,
         allow_origins=list(settings.allowed_origins),
         allow_methods=["GET", "POST", "DELETE"],
-        allow_headers=["Content-Type", "X-Admin-Token", "X-Review-Code"],
+        allow_headers=["Content-Type", "X-Admin-Token"],
     )
+    app.add_middleware(OriginCheck, allowed_origins=settings.allowed_origins)
     app.add_middleware(SecurityHeaders)
     return app
+
+
+class Limits:
+    """The attempt counters, each over 15 minutes (sign-ups over an hour)."""
+
+    def __init__(self, clock):
+        window = 15 * 60
+        self.signin_account = RateLimiter(5, window, clock)  # wrong passwords for one email
+        self.signin_ip = RateLimiter(20, window, clock)  # wrong passwords from one address
+        self.signup_ip = RateLimiter(5, 60 * 60, clock)  # new accounts from one address
+        self.reset_ip = RateLimiter(10, window, clock)  # wrong reset links from one address
+        self.claim_account = RateLimiter(5, window, clock)  # wrong admin tokens from one account
 
 
 _default_app: FastAPI | None = None

@@ -1,10 +1,12 @@
 // Checks a running backend against the fields the frontend relies on (the
 // ones src/api.js reads). Run with `npm run check:api`; set BILHARZ_API_URL to
-// check a backend other than http://localhost:8000. If the backend requires a
-// review code, set BILHARZ_REVIEW_CODE too, or the review endpoints are skipped.
+// check a backend other than http://localhost:8000. The review endpoints need
+// an approved reviewer: set BILHARZ_EMAIL and BILHARZ_PASSWORD to sign in as
+// one, or they are skipped.
 
 const BASE = (process.env.BILHARZ_API_URL || 'http://localhost:8000').replace(/\/$/, '')
-const REVIEW_CODE = process.env.BILHARZ_REVIEW_CODE || null
+const EMAIL = process.env.BILHARZ_EMAIL || null
+const PASSWORD = process.env.BILHARZ_PASSWORD || null
 
 const DECISION = { oneOf: ['negative', 'positive', 'referred'] }
 const VERDICT = { oneOf: ['infected', 'healthy'] }
@@ -30,7 +32,21 @@ const REVIEW_ITEM = {
 const CHECKS = [
   {
     path: '/api/config',
-    shape: object({ default: 'string', settings: { values: RULE }, review_code_required: 'boolean' }),
+    shape: object({ default: 'string', settings: { values: RULE } }),
+  },
+  {
+    path: '/api/auth/me',
+    shape: object({
+      account: nullable(
+        object({
+          id: 'number',
+          name: 'string',
+          email: 'string',
+          role: { oneOf: ['reviewer', 'admin'] },
+          status: { oneOf: ['pending', 'approved', 'disabled'] },
+        }),
+      ),
+    }),
   },
   {
     path: '/api/samples',
@@ -119,14 +135,26 @@ function summarise(problems) {
 let failed = false
 console.log(`Checking ${BASE} against the fields the frontend uses\n`)
 
+// The session cookie, if a reviewer's email and password were given.
+let cookie = null
+if (EMAIL && PASSWORD) {
+  const res = await fetch(`${BASE}/api/auth/signin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: BASE },
+    body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
+  })
+  if (res.ok) cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]
+  else console.log(`! Signing in as ${EMAIL} failed (HTTP ${res.status}); the review endpoints are skipped\n`)
+}
+
 for (const { path, shape, review } of CHECKS) {
   let body
   try {
     const headers = { Accept: 'application/json' }
-    if (review && REVIEW_CODE) headers['X-Review-Code'] = REVIEW_CODE
+    if (cookie) headers.Cookie = cookie
     const res = await fetch(BASE + path, { headers })
-    if (review && res.status === 403 && !REVIEW_CODE) {
-      console.log(`– ${path}  skipped: the backend requires a review code (set BILHARZ_REVIEW_CODE to check it)`)
+    if (review && (res.status === 401 || res.status === 403) && !cookie) {
+      console.log(`– ${path}  skipped: needs an approved reviewer (set BILHARZ_EMAIL and BILHARZ_PASSWORD)`)
       continue
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`)

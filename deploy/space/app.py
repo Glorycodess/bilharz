@@ -26,14 +26,16 @@ ASSETS = HERE / "assets"
 STATIC = HERE / "static"
 SPACE_URL = "https://iamglory-bilharz.hf.space"
 
-# Defaults for the Space; anything set in the Space settings wins. Secrets
-# (BILHARZ_ADMIN_TOKEN, BILHARZ_REVIEW_CODE) are only ever read from the environment.
+# Defaults for the Space; anything set in the Space settings wins. The secret
+# BILHARZ_ADMIN_TOKEN is only ever read from the environment.
 os.environ.setdefault("BILHARZ_ASSETS_DIR", str(ASSETS))
 os.environ.setdefault("BILHARZ_SCORES_PATH", str(ASSETS / "patient_scores.npz"))
 os.environ.setdefault("BILHARZ_ALLOWED_ORIGINS", SPACE_URL)
 # The Space disk is ephemeral, so the reviews database there is lost when it
 # restarts. Set BILHARZ_REVIEWS_DIR to the mount path of a Storage Bucket to
 # keep every review in a journal there; the database is rebuilt from it on start.
+# Reviewer accounts are kept there too, in accounts.jsonl (BILHARZ_ACCOUNTS_DIR
+# overrides). Sign-in sessions are held in memory: a restart signs everyone out.
 os.environ.setdefault("BILHARZ_REVIEWS_DB", str(HERE / "data" / "reviews.db"))
 os.environ.setdefault("BILHARZ_REVIEWS_PERSISTENT", "false")
 # No usage analytics from Gradio.

@@ -1,13 +1,50 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import { OFFLINE_APP_URL } from './servers.js'
+import { ADMIN_TOKEN, APP_URL, OFFLINE_APP_URL } from './servers.js'
 
 // Real images from scripts/fetch_samples.py; the upload test is skipped without them.
 const DT40_IMAGES = fileURLToPath(new URL('../../test-data/samples/DT40', import.meta.url))
 const hasDt40 = existsSync(DT40_IMAGES) && readdirSync(DT40_IMAGES).filter((f) => f.endsWith('.jpeg')).length === 117
 
 test.describe.configure({ mode: 'serial' })
+
+// Sign this browser in as an approved reviewer (an admin, made with the admin
+// token), through the API: the session cookie is shared with the page. The
+// sign-in screens are tested on their own.
+const REVIEWER = { name: 'E2E Reviewer', email: 'e2e@example.org', password: 'end to end passphrase' }
+
+const PLAIN = { name: 'Plain Reviewer', email: 'plain@example.org', password: 'another long passphrase' }
+const ORIGIN = { Origin: APP_URL }
+
+// Sign in `api` (a page's request context, or a separate one) as `who`,
+// creating the account the first time; returns the account.
+async function signIn(api, who) {
+  const signIn = await api.post('/api/auth/signin', { headers: ORIGIN, data: { email: who.email, password: who.password } })
+  if (signIn.status() !== 401) {
+    expect(signIn.status()).toBe(200)
+    return signIn.json()
+  }
+  const signUp = await api.post('/api/auth/signup', { headers: ORIGIN, data: who })
+  expect(signUp.status()).toBe(201)
+  return signUp.json()
+}
+
+async function signInAsReviewer(page) {
+  await signIn(page.request, REVIEWER)
+  const claim = await page.request.post('/api/admin/claim', { headers: { ...ORIGIN, 'X-Admin-Token': ADMIN_TOKEN } })
+  expect(claim.status(), await claim.text()).toBe(200)
+}
+
+// An approved reviewer who is not an admin, approved by the admin in `adminApi`.
+async function signInAsPlainReviewer(page, adminApi) {
+  await signIn(adminApi, REVIEWER)
+  const claim = await adminApi.post('/api/admin/claim', { headers: { ...ORIGIN, 'X-Admin-Token': ADMIN_TOKEN } })
+  expect(claim.status()).toBe(200)
+  const account = await signIn(page.request, PLAIN)
+  const approve = await adminApi.post(`/api/admin/accounts/${account.id}/approve`, { headers: ORIGIN })
+  expect(approve.status()).toBe(200)
+}
 
 async function waitingCount(page) {
   const text = await page.locator('.header__waiting').textContent()
@@ -93,6 +130,7 @@ test("DT40's tiles load on its review page", async ({ page }) => {
 })
 
 test('recording a review updates the waiting count and the Reviews page', async ({ page }) => {
+  await signInAsReviewer(page)
   await page.goto('/review/DT40')
   await page.getByRole('button', { name: /^Infected/ }).click()
   await page.getByLabel('Note (optional)').fill('One egg in the top tile')
@@ -104,11 +142,12 @@ test('recording a review updates the waiting count and the Reviews page', async 
   const row = page.locator('.reviews__table tbody tr', { hasText: 'DT40' })
   await expect(row).toContainText('Infected')
   await expect(row).toContainText('One egg in the top tile')
-  await expect(row).toContainText('Unknown') // recorded with nobody signed in
+  await expect(row).toContainText(REVIEWER.name) // from the session, not the form
   await expect(page.locator('.page-header')).toContainText('1 reviewed · 1 infected · 0 healthy')
 })
 
 test('a reviewed sample offers editing instead of a second review', async ({ page }) => {
+  await signInAsReviewer(page)
   await page.goto('/review/DT40')
   await expect(page.getByRole('heading', { name: 'Already reviewed' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Record decision' })).toHaveCount(0)
@@ -118,6 +157,7 @@ test('a reviewed sample offers editing instead of a second review', async ({ pag
 })
 
 test('editing a review adds a new version and keeps the old one', async ({ page }) => {
+  await signInAsReviewer(page)
   await page.goto('/review/DT40?edit=1')
   await expect(page.getByLabel('Note (optional)')).toHaveValue('One egg in the top tile')
   await page.getByRole('button', { name: /^Healthy/ }).click()
@@ -135,7 +175,8 @@ test('editing a review adds a new version and keeps the old one', async ({ page 
   await expect(replaced).toContainText('One egg in the top tile')
 })
 
-test('export with a wrong token shows the error and keeps nothing', async ({ page }) => {
+test('export with a wrong token shows the error and keeps nothing', async ({ page, request }) => {
+  await signInAsPlainReviewer(page, request)
   await page.goto('/reviews')
   await page.getByRole('button', { name: 'Export CSV' }).click()
   await page.getByLabel('Admin token').fill('not-the-token')

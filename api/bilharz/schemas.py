@@ -16,6 +16,9 @@ class Health(BaseModel):
     reviews_unreadable: int = Field(
         default=0, description="Lines of the reviews journal that could not be read at start-up (kept in the file)"
     )
+    accounts_writable: bool = Field(
+        default=True, description="Whether accounts can be created and changed: the accounts file was read and can be written"
+    )
 
 
 class RuleOut(BaseModel):
@@ -28,7 +31,6 @@ class RuleOut(BaseModel):
 class ConfigOut(BaseModel):
     default: str
     settings: dict[str, RuleOut]
-    review_code_required: bool = Field(description="Whether review endpoints need the X-Review-Code header")
 
 
 class LatestReview(BaseModel):
@@ -39,14 +41,13 @@ class LatestReview(BaseModel):
 class LatestReviewDetail(LatestReview):
     id: int = Field(description="Send as `supersedes` to amend this review")
     note: str | None = Field(description="Null when hidden: see details_hidden")
-    tester_code: str | None = Field(description="Null when hidden: see details_hidden")
+    tester_code: str | None = Field(description="Older reviews only; null when hidden: see details_hidden")
     reviewer_name: str | None = Field(
         default=None, description="Who recorded it; null for reviews from before accounts, or when hidden"
     )
     details_hidden: bool = Field(
         default=False,
-        description="True when the server needs a review code and none (or a wrong one) was sent: "
-        "the note and tester code are withheld",
+        description="True unless a signed-in, approved reviewer asked: the note, tester code and reviewer are withheld",
     )
 
 
@@ -103,7 +104,6 @@ class ReviewIn(BaseModel):
 
     verdict: Literal["infected", "healthy"]
     note: str | None = Field(default=None, max_length=500)
-    tester_code: str | None = Field(default=None, pattern=r"^T[0-9]{1,3}$")
     supersedes: int | None = Field(default=None, description="To amend: the id of the sample's current review")
 
 
@@ -112,7 +112,7 @@ class ReviewOut(BaseModel):
     sample_id: str
     verdict: Literal["infected", "healthy"]
     note: str | None
-    tester_code: str | None
+    tester_code: str | None = Field(description="The anonymous tester code of an older review; new reviews have none")
     created_at: str
     supersedes: int | None
     reviewer_name: str | None = Field(description="Who recorded it; null for reviews from before accounts")
@@ -125,3 +125,61 @@ class ReviewListItem(ReviewOut):
 
 class Deleted(BaseModel):
     deleted: int
+
+
+# Accounts ----------------------------------------------------------------------
+
+
+class SignUpIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(max_length=200)
+    email: str = Field(max_length=320)
+    password: str = Field(max_length=1000)
+
+
+class SignInIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(max_length=320)
+    password: str = Field(max_length=1000)
+
+
+class ResetIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(max_length=200)
+    password: str = Field(max_length=1000)
+
+
+class RoleIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    role: Literal["reviewer", "admin"]
+
+
+class AccountOut(BaseModel):
+    """The signed-in account, as it sees itself."""
+
+    id: int
+    name: str
+    email: str
+    role: Literal["reviewer", "admin"]
+    status: Literal["pending", "approved", "disabled"]
+
+
+class Me(BaseModel):
+    account: AccountOut | None = Field(description="Null when nobody is signed in")
+
+
+class AccountListItem(AccountOut):
+    """An account as an admin sees it."""
+
+    created_at: str
+    approved_at: str | None
+    reset_link_active: bool = Field(description="A reset link has been made and has not been used or expired")
+
+
+class ResetLink(BaseModel):
+    url: str = Field(description="Give this to the account's owner; it works once")
+    expires_at: str

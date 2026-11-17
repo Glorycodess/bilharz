@@ -2,20 +2,22 @@
 import csv
 import io
 import json
+from dataclasses import replace
 
 import pytest
 
-from .conftest import ADMIN_TOKEN
+from .conftest import ADMIN_TOKEN, REVIEWER, sign_in_as
 
 ADMIN = {"X-Admin-Token": ADMIN_TOKEN}
 
 
 def test_create_and_list(make_client):
-    with make_client() as c:
-        r = c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "Spine visible on tile 1.", "tester_code": "T7"})
+    with make_client(as_reviewer=True) as c:
+        r = c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "Spine visible on tile 1."})
         assert r.status_code == 201
         saved = r.json()
-        assert saved["sample_id"] == "DT40" and saved["verdict"] == "infected" and saved["tester_code"] == "T7"
+        assert saved["sample_id"] == "DT40" and saved["verdict"] == "infected"
+        assert saved["tester_code"] is None and saved["reviewer_name"] == "Test Reviewer"
         assert saved["created_at"].endswith("+00:00")
         c.post("/api/reviews/DT03", json={"verdict": "healthy"})
 
@@ -25,7 +27,7 @@ def test_create_and_list(make_client):
             "id", "sample_id", "verdict", "note", "tester_code", "created_at", "supersedes", "reviewer_name",
             "decision", "version_count",
         }
-        assert listed[0]["reviewer_name"] is None  # nobody signed in
+        assert listed[0]["reviewer_name"] == "Test Reviewer"
 
         queue = {s["id"]: s for s in c.get("/api/samples").json()["samples"]}
         assert queue["DT40"]["review"]["verdict"] == "infected"
@@ -43,18 +45,21 @@ def test_create_and_list(make_client):
         {"verdict": "healthy", "tester_code": "T1234"},
         {"verdict": "healthy", "tester_code": "t1"},
         {"verdict": "healthy", "tester_code": "T\u0661"},
+        # New reviews have a reviewer: a tester code, even a well-formed one, is refused.
+        {"verdict": "healthy", "tester_code": "T1"},
     ],
 )
-def test_invalid_review_is_422(client, body):
-    assert client.post("/api/reviews/DT40", json=body).status_code == 422
+def test_invalid_review_is_422(reviewer_client, body):
+    assert reviewer_client.post("/api/reviews/DT40", json=body).status_code == 422
+    assert reviewer_client.get("/api/reviews").json() == []
 
 
-def test_review_unknown_sample(client):
-    assert client.post("/api/reviews/DT99", json={"verdict": "healthy"}).status_code == 404
+def test_review_unknown_sample(reviewer_client):
+    assert reviewer_client.post("/api/reviews/DT99", json={"verdict": "healthy"}).status_code == 404
 
 
 def test_delete_requires_token(make_client):
-    with make_client() as c:
+    with make_client(as_reviewer=True) as c:
         c.post("/api/reviews/DT40", json={"verdict": "healthy"})
         assert c.delete("/api/reviews").status_code == 403
         assert c.delete("/api/reviews", headers={"X-Admin-Token": "wrong"}).status_code == 403
@@ -75,7 +80,7 @@ def test_review_columns(make_client):
     import sqlite3
     from contextlib import closing
 
-    with make_client() as c, closing(sqlite3.connect(c.app.state.settings.reviews_db)) as db:
+    with make_client(as_reviewer=True) as c, closing(sqlite3.connect(c.app.state.settings.reviews_db)) as db:
         cols = [row[1] for row in db.execute("PRAGMA table_info(reviews)")]
     assert cols == [
         "id", "sample_id", "verdict", "note", "tester_code", "created_at", "supersedes", "reviewer_id", "reviewer_name",
@@ -83,9 +88,9 @@ def test_review_columns(make_client):
 
 
 def test_latest_review_wins(make_client):
-    with make_client() as c:
+    with make_client(as_reviewer=True) as c:
         first = c.post("/api/reviews/DT40", json={"verdict": "healthy", "note": "first look"}).json()
-        c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "second look", "tester_code": "T2", "supersedes": first["id"]})
+        c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "second look", "supersedes": first["id"]})
 
         queue = {s["id"]: s for s in c.get("/api/samples").json()["samples"]}
         assert set(queue["DT40"]["review"]) == {"verdict", "created_at"}
@@ -94,7 +99,7 @@ def test_latest_review_wins(make_client):
         result = c.get("/api/samples/DT40").json()
         assert result["review_count"] == 2
         assert result["review"]["verdict"] == "infected"
-        assert result["review"]["note"] == "second look" and result["review"]["tester_code"] == "T2"
+        assert result["review"]["note"] == "second look" and result["review"]["tester_code"] is None
         assert set(result["review"]) == {"id", "verdict", "created_at", "note", "tester_code", "reviewer_name", "details_hidden"}
 
         # The earlier review stays in the audit trail.
@@ -108,7 +113,7 @@ def test_unreviewed_sample_result(client):
 
 
 def test_filters(make_client):
-    with make_client() as c:
+    with make_client(as_reviewer=True) as c:
         c.post("/api/reviews/DT40", json={"verdict": "infected"})
         c.post("/api/reviews/DT03", json={"verdict": "healthy"})
         c.post("/api/reviews/DT05", json={"verdict": "infected"})
@@ -125,8 +130,8 @@ def test_filters(make_client):
 
 
 def test_csv_export(make_client):
-    with make_client() as c:
-        c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "=HYPERLINK(\"http://x\")", "tester_code": "T1"})
+    with make_client(as_reviewer=True) as c:
+        c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "=HYPERLINK(\"http://x\")"})
         c.post("/api/reviews/DT03", json={"verdict": "healthy", "note": "Debris only, see tile 2"})
         previous = None
         for note in ["+1", "-2", "@SUM(A1)"]:
@@ -141,7 +146,7 @@ def test_csv_export(make_client):
             "review_id", "sample_id", "system_decision", "verdict", "note", "tester_code", "created_at", "supersedes",
             "reviewer_id", "reviewer",
         ]
-        assert all(row[8:] == ["", "unknown"] for row in rows[1:])  # recorded with nobody signed in
+        assert all(row[8:] == ["1", "Test Reviewer"] for row in rows[1:])
         by_note = {row[4]: row for row in rows[1:]}
         assert "'=HYPERLINK(\"http://x\")" in by_note
         assert by_note["'=HYPERLINK(\"http://x\")"][1:4] == ["DT40", "referred", "infected"]
@@ -166,7 +171,7 @@ def test_no_labels_in_review_responses(make_client):
             for v in value:
                 yield from keys(v)
 
-    with make_client() as c:
+    with make_client(as_reviewer=True) as c:
         c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "spine visible"})
         bodies = [
             c.get("/api/samples").json(),
@@ -184,7 +189,7 @@ def test_no_labels_in_review_responses(make_client):
 
 
 def test_amend_keeps_the_old_version(make_client):
-    with make_client() as c:
+    with make_client(as_reviewer=True) as c:
         first = c.post("/api/reviews/DT40", json={"verdict": "healthy", "note": "No egg seen"}).json()
         assert first["supersedes"] is None
         r = c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "Spine on tile 1", "supersedes": first["id"]})
@@ -205,7 +210,7 @@ def test_amend_keeps_the_old_version(make_client):
 
 
 def test_current_view_has_one_row_per_sample(make_client):
-    with make_client() as c:
+    with make_client(as_reviewer=True) as c:
         a = c.post("/api/reviews/DT40", json={"verdict": "healthy"}).json()
         b = c.post("/api/reviews/DT40", json={"verdict": "infected", "supersedes": a["id"]}).json()
         c.post("/api/reviews/DT40", json={"verdict": "healthy", "supersedes": b["id"]})
@@ -226,7 +231,7 @@ def test_current_view_has_one_row_per_sample(make_client):
 
 
 def test_stale_supersedes_is_409(make_client):
-    with make_client() as c:
+    with make_client(as_reviewer=True) as c:
         first = c.post("/api/reviews/DT40", json={"verdict": "healthy"}).json()
         c.post("/api/reviews/DT40", json={"verdict": "infected", "supersedes": first["id"]})
         # A second reviewer still looking at the first version:
@@ -237,7 +242,7 @@ def test_stale_supersedes_is_409(make_client):
 
 
 def test_supersedes_must_belong_to_the_sample(make_client):
-    with make_client() as c:
+    with make_client(as_reviewer=True) as c:
         other = c.post("/api/reviews/DT03", json={"verdict": "healthy"}).json()
         c.post("/api/reviews/DT40", json={"verdict": "healthy"})
         wrong_sample = c.post("/api/reviews/DT40", json={"verdict": "infected", "supersedes": other["id"]})
@@ -276,7 +281,7 @@ def test_old_database_is_migrated(tmp_path):
 
 
 def test_csv_needs_the_admin_token(make_client):
-    with make_client() as c:
+    with make_client(as_reviewer=True) as c:
         c.post("/api/reviews/DT40", json={"verdict": "healthy"})
         assert c.get("/api/reviews.csv").status_code == 403
         assert c.get("/api/reviews.csv", headers={"X-Admin-Token": "wrong"}).status_code == 403
@@ -291,76 +296,55 @@ def test_csv_disabled_without_configured_token(make_client):
         assert "anything" not in r.text
 
 
-def test_review_code_unset_means_open(make_client):
-    with make_client(review_code=None) as c:
-        assert c.get("/api/config").json()["review_code_required"] is False
-        assert c.post("/api/reviews/DT40", json={"verdict": "healthy"}).status_code == 201
-        assert c.get("/api/reviews").status_code == 200
+def test_reviews_need_a_signed_in_reviewer(make_client):
+    with make_client() as c:
+        r = c.post("/api/reviews/DT40", json={"verdict": "healthy"})
+        assert r.status_code == 401 and r.json() == {"detail": "Sign in as a reviewer to do this."}
+        assert c.get("/api/reviews").status_code == 401
+        assert c.get("/api/reviews", params={"view": "all"}).status_code == 401
+        # The queue, results and config stay open to everyone.
+        assert c.get("/api/samples").status_code == 200
+        assert c.get("/api/samples/DT40").status_code == 200
+        assert "review_code_required" not in c.get("/api/config").json()
 
 
-def test_review_code_required(make_client):
-    with make_client(review_code="ward-7-code") as c:
-        config = c.get("/api/config").json()
-        assert config["review_code_required"] is True
-        assert "ward-7-code" not in c.get("/api/config").text
-
-        for headers in ({}, {"X-Review-Code": "wrong"}, {"X-Review-Code": ""}):
-            assert c.post("/api/reviews/DT40", json={"verdict": "healthy"}, headers=headers).status_code == 403
-            assert c.get("/api/reviews", headers=headers).status_code == 403
-            assert c.get("/api/reviews", params={"view": "all"}, headers=headers).status_code == 403
-        assert c.get("/api/reviews").json() == {"detail": "A review access code is required."}
-        assert c.get("/api/reviews", headers={"X-Review-Code": "wrong"}).json() == {"detail": "That review code isn't valid."}
-
-        code = {"X-Review-Code": "ward-7-code"}
-        first = c.post("/api/reviews/DT40", json={"verdict": "healthy"}, headers=code)
-        assert first.status_code == 201
-        edit = c.post("/api/reviews/DT40", json={"verdict": "infected", "supersedes": first.json()["id"]}, headers=code)
-        assert edit.status_code == 201
-        assert len(c.get("/api/reviews", params={"view": "all"}, headers=code).json()) == 2
-
-        # The queue stays public, so the waiting count works without the code.
-        queue = c.get("/api/samples")
-        assert queue.status_code == 200
-        assert {s["id"]: s for s in queue.json()["samples"]}["DT40"]["review"]["verdict"] == "infected"
-        # The CSV stays admin-only: the review code alone isn't enough.
-        assert c.get("/api/reviews.csv", headers=code).status_code == 403
-        assert c.get("/api/reviews.csv", headers={**code, **ADMIN}).status_code == 200
+@pytest.mark.parametrize("status", ["pending", "disabled"])
+def test_an_account_that_is_not_approved_cannot_review(make_client, status):
+    with sign_in_as(make_client(), replace(REVIEWER, status=status)) as c:
+        r = c.post("/api/reviews/DT40", json={"verdict": "healthy"})
+        assert r.status_code == 403
+        assert r.json() == {"detail": "Your account is waiting for an admin to approve it."}
+        assert c.get("/api/reviews").status_code == 403
+        assert c.get("/api/reviews").json() == {"detail": "Your account is waiting for an admin to approve it."}
 
 
-def test_cors_allows_the_review_code_header(client):
+def test_cors_allows_only_the_headers_in_use(client):
     pre = client.options(
         "/api/reviews",
         headers={
             "Origin": "http://localhost:5173",
             "Access-Control-Request-Method": "GET",
-            "Access-Control-Request-Headers": "x-review-code",
+            "Access-Control-Request-Headers": "x-admin-token",
         },
     )
     assert pre.status_code == 200
-    assert "x-review-code" in pre.headers["access-control-allow-headers"].lower()
+    allowed = pre.headers["access-control-allow-headers"].lower()
+    assert "x-admin-token" in allowed and "x-review-code" not in allowed
 
 
-def test_sample_hides_review_details_without_code(make_client):
-    with make_client(review_code="ward-7-code") as c:
-        code = {"X-Review-Code": "ward-7-code"}
-        c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "Spine on tile 1", "tester_code": "T3"}, headers=code)
+def test_sample_hides_review_details_from_anyone_but_an_approved_reviewer(make_client):
+    with make_client(as_reviewer=True) as c:
+        c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "Spine on tile 1"})
+        review = c.get("/api/samples/DT40").json()["review"]
+        assert review["note"] == "Spine on tile 1" and review["reviewer_name"] == "Test Reviewer"
+        assert review["details_hidden"] is False
 
-        for headers in ({}, {"X-Review-Code": "wrong"}):
-            r = c.get("/api/samples/DT40", headers=headers)
+        for account in (None, replace(REVIEWER, id=2, status="pending")):
+            sign_in_as(c, account)
+            r = c.get("/api/samples/DT40")
             assert r.status_code == 200
             review = r.json()["review"]
-            assert review["verdict"] == "infected" and review["created_at"]
-            assert review["note"] is None and review["tester_code"] is None and review["details_hidden"] is True
-            assert "Spine on tile 1" not in r.text and "T3" not in r.text
-
-        review = c.get("/api/samples/DT40", headers=code).json()["review"]
-        assert review["note"] == "Spine on tile 1" and review["tester_code"] == "T3"
-        assert review["details_hidden"] is False
-
-
-def test_sample_shows_review_details_without_configured_code(make_client):
-    with make_client(review_code=None) as c:
-        c.post("/api/reviews/DT40", json={"verdict": "healthy", "note": "Debris only", "tester_code": "T1"})
-        review = c.get("/api/samples/DT40").json()["review"]
-        assert review["note"] == "Debris only" and review["tester_code"] == "T1"
-        assert review["details_hidden"] is False
+            assert review["verdict"] == "infected" and review["created_at"]  # the verdict stays public
+            assert review["note"] is None and review["reviewer_name"] is None and review["tester_code"] is None
+            assert review["details_hidden"] is True
+            assert "Spine on tile 1" not in r.text and "Test Reviewer" not in r.text

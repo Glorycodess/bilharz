@@ -25,6 +25,7 @@ def test_health(client):
         "samples": 65,
         "reviews_persistent": True,
         "reviews_unreadable": 0,
+        "accounts_writable": True,
     }
 
 
