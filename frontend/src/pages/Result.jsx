@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { TILES_PER_IMAGE, getConfig, getSample, isReviewed } from '../api.js'
 import { pending, useApi } from '../useApi.js'
-import { VERDICT_WORDS, formatCount, formatTime, tilesLookLikeEggs } from '../format.js'
+import { VERDICT_WORDS, decisionSentence, formatCount, formatTime, tilesLookLikeEggs } from '../format.js'
 import Button from '../components/Button.jsx'
 import DecisionScale from '../components/DecisionScale.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
@@ -122,6 +122,7 @@ function ResultView({ sample, config }) {
           </>
         }
       />
+      <p className={`result__explain result__explain--${decision}`}>{decisionSentence(decision, n, rule)}</p>
       {isReviewed(sample) && <ReviewerVerdict id={id} review={sample.review} count={sample.reviewCount} />}
 
       <section className="result__section" aria-labelledby="lands-title">

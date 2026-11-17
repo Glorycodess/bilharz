@@ -2,6 +2,16 @@
   border-top: 1px solid var(--line);
 }
 
+/* A button that looks like the footer's links. */
+.footer__guide {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .footer__inner {
   display: flex;
   flex-wrap: wrap;

@@ -48,6 +48,9 @@ test('switching the decision setting updates the queue and the results', async (
   await expect(page.getByText('score above 0.99', { exact: true })).toBeVisible()
   await expect(page.getByText('Counted tiles score above 0.99 and decide the outcome.')).toBeVisible()
   await expect(page.locator('.scale__labels')).toContainText('1–12 · referred')
+  await expect(page.locator('.result__explain')).toContainText(
+    'too many to clear and too few to confirm (confirming takes more than 12 under the Efficiency setting)',
+  )
 
   // Back through the menu's Change link, to the Safety setting.
   await page.getByRole('button', { name: 'Open navigation' }).click()
@@ -61,8 +64,22 @@ test('switching the decision setting updates the queue and the results', async (
   await page.goto('/samples/DT40')
   await expect(page.getByText('score above 0.95', { exact: true })).toBeVisible()
   await expect(page.locator('.scale__labels')).toContainText('1–35 · referred')
+  await expect(page.locator('.result__explain')).toContainText('more than 35 under the Safety setting')
   await page.goto('/queue')
   await expectQueueCounts(page, 48, 10, 7)
+})
+
+test('the first-time guide can be hidden, stays hidden after a reload, and comes back', async ({ page }) => {
+  await page.goto('/')
+  const guide = page.getByRole('region', { name: 'New to Bilharz?' })
+  await expect(guide).toBeVisible()
+  await guide.getByRole('button', { name: 'Got it, hide this' }).click()
+  await expect(guide).toBeHidden()
+  await page.reload()
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(guide).toBeHidden()
+  await page.getByRole('button', { name: 'Show the first-time guide' }).click()
+  await expect(guide).toBeVisible()
 })
 
 test("DT40's tiles load on its review page", async ({ page }) => {

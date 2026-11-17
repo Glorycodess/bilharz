@@ -12,7 +12,7 @@ const SECTIONS = [
   },
   {
     title: 'What Bilharz stores',
-    text: 'Only review records: the sample ID, the verdict ("infected" or "healthy"), the time of each version, and an optional note and tester code if the reviewer adds them. Records are kept in private storage on Hugging Face, outside Rwanda. Bilharz never asks for patient names, so please do not type patient names or other identifying details into notes. Your browser keeps only your chosen decision setting and whether the egg guide is open; it stores no review records, codes or tokens.',
+    text: 'Only review records: the sample ID, the verdict ("infected" or "healthy"), the time of each version, and an optional note and tester code if the reviewer adds them. Records are kept in private storage on Hugging Face, outside Rwanda. Bilharz never asks for patient names, so please do not type patient names or other identifying details into notes. Your browser keeps only your chosen decision setting, whether the egg guide is open, and whether you have hidden the first-time guide; it stores no review records, codes or tokens.',
   },
   {
     title: 'Who can see the data',

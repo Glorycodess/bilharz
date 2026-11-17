@@ -10,6 +10,22 @@ export function tilesLookLikeEggs(n) {
   return n === 1 ? '1 tile looks like an egg.' : `${formatCount(n)} tiles look like eggs.`
 }
 
+// The decision in one plain sentence, with the cut-offs of the setting that
+// made it (`rule`: clearBelow, flagAbove and label, as from getConfig).
+export function decisionSentence(decision, n, { clearBelow, flagAbove, label }) {
+  const seen =
+    n === 0 ? 'no tile looks like an egg' : n === 1 ? '1 tile looks like an egg' : `${formatCount(n)} tiles look like eggs`
+  const setting = `under the ${label} setting`
+  if (decision === 'negative') {
+    const why = clearBelow === 1 ? '' : `, fewer than the ${clearBelow} it takes to refer a sample ${setting}`
+    return `Negative: ${seen}${why}, so the sample was cleared without review.`
+  }
+  if (decision === 'positive') {
+    return `Positive: ${seen}, more than the ${flagAbove} it takes to confirm ${setting}, so the sample was confirmed without review.`
+  }
+  return `Referred: ${seen}, too many to clear and too few to confirm (confirming takes more than ${flagAbove} ${setting}), so a technician should review it.`
+}
+
 export function confidentTiles(n) {
   return `${formatCount(n)} confident ${n === 1 ? 'tile' : 'tiles'}`
 }

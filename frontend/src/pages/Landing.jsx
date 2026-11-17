@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { getPerformance } from '../api.js'
 import { useApi } from '../useApi.js'
 import Button from '../components/Button.jsx'
+import FirstVisitGuide from '../components/FirstVisitGuide.jsx'
 import Footer from '../components/Footer.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
 import TileGrid from '../components/TileGrid.jsx'
@@ -25,6 +26,7 @@ export default function Landing() {
 
   return (
     <>
+      <FirstVisitGuide />
       <section className="container hero">
         <div className="hero__copy">
           <p className="eyebrow">Urine microscopy · schistosomiasis</p>

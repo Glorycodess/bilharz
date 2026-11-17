@@ -9,6 +9,25 @@
   gap: 4px 16px;
 }
 
+/* The decision in a sentence. The colour only repeats the word it starts with. */
+.result__explain {
+  max-width: 820px;
+  margin-top: 24px;
+  padding: 14px 18px;
+  border-left: 4px solid var(--referred);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.result__explain--negative {
+  border-left-color: var(--negative);
+}
+
+.result__explain--positive {
+  border-left-color: var(--positive);
+}
+
 .result__section-head {
   display: flex;
   flex-wrap: wrap;
