@@ -32,7 +32,7 @@ const SECTIONS = [
   },
   {
     title: 'Limits of the tool',
-    text: "Bilharz's egg detector was trained on one public dataset and tested on 65 patients from a second public dataset. It has not been validated with clinical users or at another site, and it is not a certified medical device.",
+    text: "Bilharz's egg detector was trained on one part of a public dataset and tested on 65 patients from a separate part of the same dataset. It has not been validated with clinical users or at another site, and it is not a certified medical device.",
   },
   {
     title: 'Retention',

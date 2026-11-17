@@ -220,7 +220,7 @@ The notebooks run on Kaggle and download their data from Zenodo. Run each with
 |---|---|---|
 | `01-data-collection.ipynb` | Downloads the diagnosis dataset, verifies its checksum, and checks its structure | Internet on |
 | `02-data-preparation-and-baseline.ipynb` | Data preparation and exploratory analysis, and a baseline using generic image features | Internet on, GPU T4 |
-| `03-detection.ipynb` | Trains the egg detector on a separate, expert-annotated dataset | Internet on, GPU T4 |
+| `03-detection.ipynb` | Trains the egg detector on the annotated part of the same dataset (SHdataset_12k), disjoint from the 65 evaluation patients | Internet on, GPU T4 |
 | `04-prediction-and-evaluation.ipynb` | Scores all 65 patients, applies triage, compares it with alternative systems, and evaluates deferral | Internet on, GPU T4, output of `03` attached |
 | `05-export.ipynb` | Exports the detector to ONNX, checks it end to end on all 65 patients, and builds the app's tiles and triage rule | Internet on, outputs of `03` and `04` attached |
 
@@ -308,8 +308,11 @@ changed because of it.
 
 ## Data
 
-**Evaluation:** [*Schistosoma haematobium* egg image dataset](https://doi.org/10.5281/zenodo.6467268),
-Zenodo, CC-BY-4.0.
+**Data:** [*Schistosoma haematobium* egg image dataset](https://doi.org/10.5281/zenodo.6467268)
+(doi 10.5281/zenodo.6467268), Zenodo, CC-BY-4.0: the diagnosis test set (evaluation) and
+SHdataset_12k (detector training).
+
+The diagnosis test set:
 
 - 65 patients (DT01–DT65), **117 images each**, 7,605 images in total
 - 32 infected, 33 healthy, labelled by expert microscopists
@@ -320,7 +323,7 @@ Zenodo, CC-BY-4.0.
 The low-burden patients matter most: a light infection is an early one, and it is
 where a single missed or false detection changes the verdict.
 
-**Detector training:** SHdataset_12k, a separate dataset of microscopy images with
+**Detector training:** SHdataset_12k, the annotated part of the same Zenodo record, with
 expert-drawn egg masks. It shares **no patients** with the evaluation set.
 
 ![Example fields of view](figures/fig_fov_examples.png)
@@ -449,9 +452,11 @@ alone they look alike, which is why they are referred.
 
 - **65 patients.** Every estimate has a wide interval; the results show the
   approach works on this cohort, not clinical performance.
-- **No external validation of the triage rule.** The detector is tested on
-  patients from a different dataset, but the triage cut-offs are learned and tested
-  within the same 65 patients. A cohort from another site is needed.
+- **No external validation.** The detector's training images and the 65 evaluation
+  patients are disjoint parts of the same dataset, imaged with the same device (the
+  Schistoscope), so there is no external validation yet. The triage cut-offs are
+  also learned and tested within the same 65 patients, through nested
+  cross-validation. A cohort from another site is needed.
 - **The cut-offs depend on the most extreme patients in training**: the healthy
   patient with the most false alarms, and the infected patient with the faintest
   eggs.
