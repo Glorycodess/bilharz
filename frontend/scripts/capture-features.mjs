@@ -1,11 +1,14 @@
-// One screenshot per feature at 1440 × 900, for docs/scope.md. Read-only:
-// pages are only opened, nothing is submitted.
+// One screenshot per feature at 1440 × 900, for docs/scope.md. Pages are only
+// opened; the one request ever sent is signing in, when asked to (below).
 //
 //   node scripts/capture-features.mjs [base URL] [--only name,name] [--suffix text]
 //
-// The base URL defaults to the live app. The "server is waking up" state is
-// always captured from a local preview of the built site (npm run build first)
-// whose backend is not running, as in e2e/servers.js.
+// The base URL defaults to the live app. Pages marked `reviewer` (the Reviews
+// page, the review form, Admin) are captured signed in when BILHARZ_EMAIL and
+// BILHARZ_PASSWORD are set (an approved admin, for the Admin page), and as a
+// visitor otherwise. The "server is waking up" state is always captured from a
+// local preview of the built site (npm run build first) whose backend is not
+// running, as in e2e/servers.js.
 import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { chromium } from '@playwright/test'
@@ -17,6 +20,8 @@ const only = option('--only')?.split(',')
 const suffix = option('--suffix') ? `-${option('--suffix')}` : ''
 const OUT = new URL('../../docs/evidence/features/', import.meta.url)
 const OFFLINE_PORT = 4175
+const EMAIL = process.env.BILHARZ_EMAIL || null
+const PASSWORD = process.env.BILHARZ_PASSWORD || null
 const DEAD_API_PORT = 8019
 
 // A slow start (a sleeping Space) can take a minute or more.
@@ -40,13 +45,26 @@ const FEATURES = [
   { name: 'result-dt29-positive', path: '/samples/DT29', ready: tilesLoaded('.result__tiles img') },
   {
     name: 'review-dt40-egg-guide',
-    path: '/review/DT40',
+    path: '/review/DT40?edit=1',
+    reviewer: true,
     ready: async (page) => {
       await tilesLoaded('.review__tiles img')(page)
       await page.locator('.egg-guide[open]').waitFor({ timeout: READY_MS })
+      await page.locator('.decision').waitFor({ timeout: READY_MS })
     },
   },
-  { name: 'reviews', path: '/reviews', ready: visible('.reviews__table, .reviews__empty') },
+  {
+    name: 'review-sign-in-prompt',
+    path: '/review/DT40',
+    ready: async (page) => {
+      await tilesLoaded('.review__tiles img')(page)
+      await page.locator('.gate').scrollIntoViewIfNeeded()
+    },
+  },
+  { name: 'reviews', path: '/reviews', reviewer: true, ready: visible('.reviews__table, .reviews__empty') },
+  { name: 'sign-in', path: '/sign-in', ready: visible('#signin-email') },
+  { name: 'sign-up', path: '/sign-up', ready: visible('#signup-name') },
+  { name: 'admin', path: '/admin', reviewer: true, ready: visible('.admin__table tbody tr') },
   { name: 'performance', path: '/performance', ready: visible('.perf__stats') },
   {
     name: 'analyse',
@@ -56,10 +74,18 @@ const FEATURES = [
   },
 ]
 
-async function capture(browser, base, { name, path, ready }) {
+async function capture(browser, base, { name, path, ready, reviewer }) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   try {
+    if (reviewer && EMAIL && PASSWORD) {
+      // Signing in is the one request sent; the session cookie is shared with the page.
+      const res = await context.request.post(`${base}/api/auth/signin`, {
+        headers: { Origin: base },
+        data: { email: EMAIL, password: PASSWORD },
+      })
+      if (!res.ok()) throw new Error(`signing in as ${EMAIL} failed (HTTP ${res.status()})`)
+    }
     await page.goto(base + path, { timeout: READY_MS })
     await ready(page)
     await page.evaluate(() => document.fonts.ready)

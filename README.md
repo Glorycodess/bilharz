@@ -487,12 +487,17 @@ All under `/api`; [api/README.md](api/README.md) has the details.
 | `GET /api/samples/{id}` | One sample's result, with its 12 highest-scoring tiles |
 | `GET /api/tiles/{id}/{rank}.jpg` | One of those tiles |
 | `POST /api/analyse` | Analyse an uploaded sample of 117 JPEG images |
-| `POST /api/reviews/{id}` | Record a technician's verdict, or a new version of it |
-| `GET /api/reviews` | The current reviews, or every version |
-| `GET /api/reviews.csv` | Every review as CSV (needs the admin token) |
-| `DELETE /api/reviews` | Delete all reviews (needs the admin token) |
+| `POST /api/reviews/{id}` | Record a technician's verdict, or a new version of it (an approved reviewer) |
+| `GET /api/reviews` | The current reviews, or every version (an approved reviewer) |
+| `GET /api/reviews.csv` | Every review as CSV (an admin, or the admin token) |
+| `DELETE /api/reviews` | Delete all reviews (an admin, or the admin token) |
+| `POST /api/auth/signup`, `/signin`, `/signout`, `/reset`; `GET /api/auth/me` | Reviewer accounts: sign up, sign in and out, a new password from a reset link, who is signed in |
+| `/api/admin/…` | Approve, disable and manage accounts (an admin); make the first admin with the admin token |
 
-Reviewer verdicts are stored for audit and are not used to retrain the model.
+Results, the queue and uploads are open to everyone. Reviewing needs a reviewer
+account that an admin has approved, and each review is recorded under the
+reviewer's name. Reviewer verdicts are stored for audit and are not used to
+retrain the model.
 
 ## Repository structure
 

@@ -13,15 +13,15 @@ the same machine over a home connection.
 
 | Strategy | Tool | Result |
 |---|---|---|
-| Backend unit and integration | pytest | 137 passed |
-| Frontend unit and component | Vitest, Testing Library | 50 passed |
-| End to end | Playwright (Chromium) | 10 passed |
-| API contract | `npm run check:api` | All 5 endpoints match, with and without a review in the database |
+| Backend unit and integration | pytest | 194 passed |
+| Frontend unit and component | Vitest, Testing Library | 84 passed |
+| End to end | Playwright (Chromium) | 15 passed |
+| API contract | `npm run check:api` | All 6 endpoints match, signed out and signed in as a reviewer, with and without a review |
 | Model validation | notebooks 04 and 05, `scripts/bootstrap_intervals.py` | Nested cross-validation reproduced; bootstrap intervals beside Clopper–Pearson; ONNX reproduces all 65 decisions |
 | Reviewer accuracy | `scripts/reviewer_sensitivity.py` | At 80% reviewer accuracy: 85.2% / 89.9% (triage), 84.4% / 83.3% (safety margin) |
 | Real samples | `scripts/fetch_samples.py`, `/api/analyse` | 3 of 3 decisions match, locally and live |
-| Security and input validation | pytest, `scripts/stress_backend.py` | Every rejected upload gets its documented status; the lock is always released |
-| Compatibility | Playwright: Chromium, Firefox, WebKit × 3 sizes × 8 pages | Local 72 of 72; live 69 of 72 (WebKit, one page, see below) |
+| Security and input validation | pytest, `scripts/stress_backend.py` | Every rejected upload gets its documented status; the lock is always released; every account rule (hashing, sessions, rate limits, approval, Origin check, admin-only actions) holds |
+| Compatibility | Playwright: Chromium, Firefox, WebKit × 3 sizes × 10 pages | Local 90 of 90; live 69 of 72 before accounts were added (8 pages; WebKit, one page, see below) |
 | Performance | `scripts/measure_backend.py`, Lighthouse, `measure-loading.mjs` | Analysis 29–34 s on CPU, 4–5 s on the live GPU; API p95 under 1.3 ms |
 | Stress | `scripts/stress_backend.py` | 1 of 4 simultaneous uploads analysed, 3 refused; 200 of 200 concurrent reads served |
 | Coverage | pytest-cov | 96% of backend statements |
@@ -38,15 +38,15 @@ real stored scores and the FastAPI app through its test client, with a
 throwaway reviews database for every test. Unit tests cover tiling (grid order,
 resizing), the triage rule (boundaries, both settings, the research counts
 48 / 10 / 7 and 33 / 20 / 12) and the ONNX scorer. Integration tests cover every
-endpoint, the review versioning, the CSV export, the admin token and review code,
-CORS and security headers, and the upload limits. The reviews journal is tested
+endpoint, the review versioning, the CSV export, the admin token, reviewer
+accounts, CORS and security headers, and the upload limits. The reviews journal is tested
 by simulating restarts: reviews written, then a new app started over the same
 journal with an empty local database; plus corrupt, cut-off and duplicate
 lines, a directory that fails the write test, and a journal write that fails
 (the review is then not stored). The GPU scorer's selection and fallback are
 tested without torch installed (the import is blocked or the detector replaced).
 
-**Result.** 137 passed in about 40 s
+**Result.** 194 passed in about 48 s
 (`pytest -m "not slow"` skips the one full 117-image analysis).
 
 **Added in this round.** A test that sends four uploads at the same moment
@@ -60,7 +60,10 @@ request body is refused), a second first review of a sample is refused with
 409, also when eight arrive at once, and the journal is read in both
 directions: every line in the deployed format (58, as on the live Space) is
 read by the new code, and a review without a reviewer is still written in
-exactly that format, checked with a copy of the deployed parser.
+exactly that format, checked with a copy of the deployed parser. Then reviewer
+accounts (53 tests in `test_accounts.py`), through real sign-ins: an https test
+client with its own cookies and an `Origin` header, and a clock the tests move
+forward. They are listed under [Security](#security-and-input-validation).
 
 ### Frontend unit and component tests
 
@@ -82,9 +85,22 @@ attempt, a download and a cancel, and the token never reaches `localStorage`,
 up" with the automatic retry after 10 seconds, and Try again); and the decision
 setting (the server's default until one is chosen, the choice sent with the queue,
 a sample and an upload but not with reviews, kept after a reload, a stored setting
-the server does not know dropped, and blocked storage handled).
+the server does not know dropped, and blocked storage handled). For accounts:
+detecting a frame (also one that cannot be read), and a `next` link after
+sign-in that can never lead to another site; the reviewer gate (signed out,
+waiting for approval, approved, and inside another page, where it offers a new
+tab); sign-in (the server's message, the password emptied after a failed
+attempt and never in storage, the new-tab link instead of a form inside a
+frame); sign-up (a short password refused before it is sent, a taken email);
+the reset page (the token taken from the link and removed from the address bar
+at once; used or expired links); the Admin page (a visitor sees no accounts; a
+non-admin sees only the admin-token form, whose token is emptied and not kept;
+approving; no button to disable or demote one's own account; a reset link shown
+once and forgotten; the server's refusal); the account mapping; a session that
+has ended refreshing who is signed in once, without a loop; and an admin
+exporting without a token.
 
-**Result.** 50 tests in 9 files, all passing (`npm test`, about 2 seconds).
+**Result.** 84 tests in 14 files, all passing (`npm test`, about 3 seconds).
 
 ### End-to-end tests
 
@@ -93,8 +109,10 @@ the real backend.
 
 **How.** Playwright in Chromium ([`frontend/e2e/app.spec.js`](../frontend/e2e/app.spec.js)).
 `npm run test:e2e` builds the site and starts the backend with a new, empty
-reviews database and a random admin token, the site through `vite preview`, and a
-second copy of the site whose backend is not running.
+reviews database, no accounts and a random admin token, the site through `vite
+preview`, and a second copy of the site whose backend is not running. Tests that
+are not about accounts sign in through the API first; the session cookie is the
+real one (`__Host-bilharz_session`, Secure), shared with the page.
 
 | Test | Checks |
 |---|---|
@@ -103,11 +121,17 @@ second copy of the site whose backend is not running.
 | Tiles | DT40's 12 review tiles load |
 | Record a review | The waiting count drops to 47; the Reviews page shows it |
 | Edit a review | A new version replaces it; the old one is listed as replaced |
-| Export | A wrong token shows "That token isn't valid." and is not kept |
+| Already reviewed | A reviewed sample offers "Edit the review" instead of a second review |
+| Export | As a reviewer who is not an admin, a wrong token shows "That token isn't valid." and is not kept |
+| First admin | A new account makes itself admin on the Admin page: a wrong token is refused and emptied, the right one shows the accounts and adds Admin to the menu |
+| Approval | A new reviewer signs up from the review page and sees "Waiting for approval"; the admin, in another browser, signs in through the form and approves them; the reviewer records a review, listed under their name |
+| Reset link | A link from the Admin page sets a new password; the token leaves the address bar at once; the old password stops working; the link works once |
+| Inside another page | The review and sign-in pages offer "Open Bilharz in a new tab" (target `_blank`) and no form |
+| Sign out | Signing out from the menu brings back the sign-in prompt on Reviews |
 | Upload | The real DT40 sample (117 images) gives Referred, with the time taken |
 | Backend stopped | The site says the server is waking up and will try again |
 
-**Result.** 10 of 10 passed (about 40 seconds, most of them the upload).
+**Result.** 15 of 15 passed (about 45 seconds, most of them the upload).
 
 ### API contract check
 
@@ -115,9 +139,12 @@ second copy of the site whose backend is not running.
 fails silently: the page shows nothing rather than an error.
 
 **How.** `npm run check:api` requests every endpoint the frontend reads and checks
-that each field it uses is present with the right type.
+that each field it uses is present with the right type. The review endpoints need
+an approved reviewer: with `BILHARZ_EMAIL` and `BILHARZ_PASSWORD` set it signs in
+first, and otherwise it skips them and says so.
 
-**Result.** All 5 endpoints match, with and without a review in the database
+**Result.** All 6 endpoints match (including `/api/auth/me`), signed out and
+signed in, with and without a review in the database
 
 ### Model validation
 
@@ -292,10 +319,55 @@ files, a PNG or text file renamed `.jpg`, a truncated JPEG, an oversized file,
 request and image; uploaded filenames never appearing in responses or logs; the
 upload time limit; the lock released after a timeout, a disconnect, a rejected
 upload and a scoring error; the admin token compared in constant time, and export
-and delete disabled without one; the optional review code; no ground-truth labels
-in any response; no personal columns in the reviews table; spreadsheet formulas
-neutralised in the CSV; tile paths taken from the manifest, never from the URL;
-security headers and CORS. The same rejections were repeated against a real
+and delete disabled without one; no ground-truth labels in any response; the
+reviews table holding only the reviewer's account id and name, no IP address or
+user agent; spreadsheet formulas neutralised in the CSV, reviewer names included;
+tile paths taken from the manifest, never from the URL; security headers and CORS.
+
+Reviewer accounts, through real sign-ins (`api/tests/test_accounts.py`):
+
+- **Hashing**: only an Argon2id hash is stored, salted (one password, two
+  hashes); a hash with weaker parameters is upgraded at sign-in; the password
+  and name rules; one account per email whatever its case; sign-up takes no
+  role or status.
+- **Sessions**: the cookie is `__Host-bilharz_session`, `HttpOnly`, `Secure`,
+  `SameSite=Lax`, `Path=/`, without `Domain`; the server keeps only the token's
+  hash; a signed-out or replaced token is refused; a session ends after 8 hours
+  idle and 7 days in use; sessions do not survive a restart, accounts do.
+- **Rate limits**: 5 wrong passwords lock an account for 15 minutes, even for
+  the right password, without affecting other accounts; a success resets the
+  count; 20 failures from one address block it; an unknown email and a wrong
+  password get the same answer; sign-ups, wrong reset links and wrong admin
+  tokens are limited.
+- **Approval**: a pending account signs in but cannot record or read reviews;
+  once approved it reviews under its own name, and the public result shows the
+  verdict without the note or the name; a disabled account is signed out at
+  once and cannot sign in, and its reviews keep its name.
+- **The reviewer comes only from the session**: `reviewer_id`,
+  `reviewer_name` or a tester code in the body is refused.
+- **Origin check**: requests from another site (`https://evil.example`,
+  `null`, a look-alike host) are refused, as is the session cookie without an
+  `Origin`; the site, the allowed origins and scripts without a cookie pass; a
+  cross-site page cannot create an account.
+- **Admin-only actions**: listing, approving, disabling, changing roles and
+  reset links are refused to visitors (401), pending accounts and reviewers
+  (403), and to the admin token alone; the first admin is made with the token,
+  which is off when none is set; an admin cannot disable or demote themselves;
+  only admins see other accounts' emails; an admin session exports and deletes
+  without the token.
+- **Reset links**: one use, one hour, replaced by a newer link, cancelled by
+  disabling; only the token's hash is stored, and every session ends after a
+  reset.
+- **Storage**: account responses are `no-store`; an account that cannot be
+  saved is refused, not lost; an accounts file with an unreadable line is never
+  written over, while existing accounts still sign in; the file holds no
+  password or token.
+- **No IP address in any log** (`api/tests/test_logging.py`): the Space starts
+  uvicorn with `access_log=False` (read from `deploy/space/app.py`, which needs
+  the Space's packages to import), and after failed sign-ins, a sign-up, a wrong
+  admin token, a wrong reset link, a cross-site request, an unknown sample and a
+  rejected upload from one address, that address is counted by the rate limit
+  but appears in none of the log records. The same rejections were repeated against a real
 server ([Stress](#stress-and-robustness)).
 
 **Result.** All pass. On the live site, the strict Content Security Policy is in
@@ -307,24 +379,28 @@ force; the only console error it causes is described under Compatibility.
 
 **How.** [`frontend/compat/compat.spec.js`](../frontend/compat/compat.spec.js):
 Chromium 156, Firefox 157 and WebKit 27.2 (Playwright builds; WebKit is the engine
-behind Safari), each at 1440 × 900, 768 × 1024 and 390 × 844, on eight pages:
-Landing, Analyse, Queue, Result (DT40), Review (DT40), Reviews, Performance and a
-not-found page. For each: no console errors, no sideways scrolling (document width
+behind Safari), each at 1440 × 900, 768 × 1024 and 390 × 844, on ten pages:
+Landing, Analyse, Queue, Result (DT40), Review (DT40), Reviews, Performance,
+Sign in, Admin and a not-found page, as a visitor who is not signed in. For each: no console errors, no sideways scrolling (document width
 at most the viewport width), the header and the page heading visible, and on Result
 and Review every tile image loaded. Run against the local build and, reading pages
 only, against the live site.
 
 | Browser | Size | Local | Live |
 |---|---|---|---|
-| Chromium 156 | 1440 × 900 | 8 / 8 | 8 / 8 |
-| Chromium 156 | 768 × 1024 | 8 / 8 | 8 / 8 |
-| Chromium 156 | 390 × 844 | 8 / 8 | 8 / 8 |
-| Firefox 157 | 1440 × 900 | 8 / 8 | 8 / 8 |
-| Firefox 157 | 768 × 1024 | 8 / 8 | 8 / 8 |
-| Firefox 157 | 390 × 844 | 8 / 8 | 8 / 8 |
-| WebKit 27.2 | 1440 × 900 | 8 / 8 | 7 / 8 |
-| WebKit 27.2 | 768 × 1024 | 8 / 8 | 7 / 8 |
-| WebKit 27.2 | 390 × 844 | 8 / 8 | 7 / 8 |
+| Chromium 156 | 1440 × 900 | 10 / 10 | 8 / 8 |
+| Chromium 156 | 768 × 1024 | 10 / 10 | 8 / 8 |
+| Chromium 156 | 390 × 844 | 10 / 10 | 8 / 8 |
+| Firefox 157 | 1440 × 900 | 10 / 10 | 8 / 8 |
+| Firefox 157 | 768 × 1024 | 10 / 10 | 8 / 8 |
+| Firefox 157 | 390 × 844 | 10 / 10 | 8 / 8 |
+| WebKit 27.2 | 1440 × 900 | 10 / 10 | 7 / 8 |
+| WebKit 27.2 | 768 × 1024 | 10 / 10 | 7 / 8 |
+| WebKit 27.2 | 390 × 844 | 10 / 10 | 7 / 8 |
+
+The local run is from 17 November, after reviewer accounts were added; the live
+run is from before, on the eight pages the site had then. It is repeated once the
+accounts are deployed.
 
 No page scrolled sideways in any browser, and all tiles loaded everywhere.
 
@@ -338,7 +414,7 @@ applies to. The dropdown still works and looks as designed (checked in WebKit on
 the live site). It does not appear locally, because `vite preview` sends no
 Content Security Policy. Loosening the policy to silence it was not done.
 
-Screenshots of every browser, size and page (72) are in
+Screenshots of every browser, size and page (90, from the local run) are in
 [`docs/evidence/compatibility/`](evidence/compatibility/), named
 `<browser>-<width>-<page>.jpg`; the per-page results are in `results-local.csv`
 and `results-live.csv`.
@@ -452,23 +528,32 @@ millisecond, and 200 arrive at once.
 
 | Module | Statements | Missed | Coverage |
 |---|---|---|---|
+| `bilharz/accounts.py` | 148 | 13 | 91% |
 | `bilharz/analysis.py` | 46 | 0 | 100% |
-| `bilharz/reviews.py` | 180 | 0 | 100% |
-| `bilharz/routes/` (5 files) | 172 | 0 | 100% |
-| `bilharz/samples.py` | 52 | 2 | 96% |
-| `bilharz/schemas.py` | 37 | 0 | 100% |
-| `bilharz/scoring.py` | 85 | 20 | 76% |
-| `bilharz/security.py` | 88 | 1 | 99% |
-| `bilharz/settings.py` | 30 | 0 | 100% |
+| `bilharz/clock.py` | 8 | 0 | 100% |
+| `bilharz/passwords.py` | 23 | 0 | 100% |
+| `bilharz/ratelimit.py` | 28 | 0 | 100% |
+| `bilharz/reviews.py` | 189 | 0 | 100% |
+| `bilharz/routes/` (8 files) | 373 | 6 | 98% |
+| `bilharz/samples.py` | 57 | 2 | 96% |
+| `bilharz/schemas.py` | 111 | 0 | 100% |
+| `bilharz/scoring.py` | 86 | 20 | 77% |
+| `bilharz/security.py` | 89 | 1 | 99% |
+| `bilharz/sessions.py` | 58 | 2 | 97% |
+| `bilharz/settings.py` | 38 | 0 | 100% |
+| `bilharz/storage.py` | 9 | 0 | 100% |
 | `bilharz/tiling.py` | 9 | 0 | 100% |
-| `bilharz/triage.py` | 28 | 1 | 96% |
-| `server.py` | 69 | 4 | 94% |
-| **Total** | **796** | **28** | **96%** |
+| `bilharz/triage.py` | 34 | 1 | 97% |
+| `server.py` | 112 | 5 | 96% |
+| **Total** | **1,418** | **50** | **96%** |
 
 Two important paths were untested and now have tests: an image whose JPEG header
 is valid but whose data is cut off (422, found by decoding), and an upload sent
 without a `Content-Length` header that passes the size limit while streaming
-(413). Of the 28 statements untested, 17 are `torch_detector` in `scoring.py`,
+(413). Of the 50 statements untested, 22 came with reviewer accounts: most are in
+`accounts.py` (an accounts directory that cannot be created or read, and a line
+with the wrong field types), and the rest are the error paths of sign-in and
+admin actions when the file cannot be written. Of the other 28, 17 are `torch_detector` in `scoring.py`,
 which builds the PyTorch model and needs torch, which the local backend does
 not install; it runs on the Space. The other 11 are: closing the tile archive, a missing
 archive member that the manifest lookup already prevents, the error when no
@@ -562,3 +647,11 @@ needs `spaces` and a GPU, and was tested by running it with the Space's settings
   by `vite preview` rather than the Space.
 - **Stress tests ran locally only**, by design, so the live site's behaviour under
   load was not measured.
+- **Reviewer accounts were tested locally, not on the live Space.** Signing in
+  inside the huggingface.co page was tested with a page from another origin in
+  Chromium, not inside the real Space page or in Safari. The accounts file on a
+  real bucket is checked at start-up by the write test (`accounts_writable` in
+  `/api/health`).
+- **Hugging Face's own proxy may record IP addresses** under its privacy policy,
+  outside the app's control. The app itself holds them in memory for the rate
+  limits only and writes none to a log.

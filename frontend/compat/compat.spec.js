@@ -9,6 +9,8 @@ const PAGES = [
   { key: 'review', path: '/review/DT40', tiles: '.review__tiles img' },
   { key: 'reviews', path: '/reviews' },
   { key: 'performance', path: '/performance' },
+  { key: 'sign-in', path: '/sign-in' },
+  { key: 'admin', path: '/admin' },
   { key: 'not-found', path: '/no-such-page' },
 ]
 

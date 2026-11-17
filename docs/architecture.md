@@ -63,10 +63,13 @@ an upload.
 
 | File | Responsibility |
 | --- | --- |
-| [`api/server.py`](../api/server.py) | `create_app`: wires settings, stores, scorer and routes; CORS, security headers, plain JSON errors |
+| [`api/server.py`](../api/server.py) | `create_app`: wires settings, stores, scorer and routes; CORS, the Origin check, security headers, plain JSON errors |
 | [`api/bilharz/settings.py`](../api/bilharz/settings.py) | Every path, origin, limit and secret, read from the environment into a frozen `Settings` |
-| [`api/bilharz/routes/`](../api/bilharz/routes/) | The endpoints under `/api`, one router per area: `status.py` (health, config), `samples.py` (queue, results, tiles), `analyse.py` (uploads), `reviews.py` (reviews, CSV export) |
-| [`api/bilharz/routes/deps.py`](../api/bilharz/routes/deps.py) | What the routers share: app state, the decision setting, the admin token and review code checks |
+| [`api/bilharz/routes/`](../api/bilharz/routes/) | The endpoints under `/api`, one router per area: `status.py` (health, config), `samples.py` (queue, results, tiles), `analyse.py` (uploads), `reviews.py` (reviews, CSV export), `auth.py` (sign-up, sign-in, sign-out, password reset), `admin.py` (accounts, the first admin) |
+| [`api/bilharz/routes/deps.py`](../api/bilharz/routes/deps.py) | What the routers share: app state, the decision setting, the signed-in account and reviewer, and who may do what (reviewer, admin, admin token) |
+| [`api/bilharz/accounts.py`](../api/bilharz/accounts.py) | Reviewer accounts in `accounts.jsonl` on persistent storage |
+| [`api/bilharz/passwords.py`](../api/bilharz/passwords.py), [`sessions.py`](../api/bilharz/sessions.py), [`ratelimit.py`](../api/bilharz/ratelimit.py) | Argon2id hashing; sign-in sessions in memory; failed-attempt counters |
+| [`api/bilharz/storage.py`](../api/bilharz/storage.py) | The whole-file replace shared by the reviews journal and the accounts file |
 | [`api/bilharz/schemas.py`](../api/bilharz/schemas.py) | Pydantic request and response models (snake_case) |
 | [`api/bilharz/samples.py`](../api/bilharz/samples.py) | The 65 stored samples (scores, image names, top-12 tiles) and the tile archive |
 | [`api/bilharz/triage.py`](../api/bilharz/triage.py) | The rule: count confident tiles, decide negative, referred or positive |
@@ -102,7 +105,7 @@ visible per request.
 
 Settings are read once from environment variables into a frozen dataclass and
 passed to the parts that need them; nothing else reads the environment. The admin
-token and review code are excluded from its `repr`, so they cannot reach a log.
+token is excluded from its `repr`, so it cannot reach a log.
 
 Storage sits behind three small classes that own their files: `SampleStore`
 loads only the scores, sample IDs and image names from the `.npz` (the labels in
@@ -128,13 +131,33 @@ a probe file; if they fail, it writes nothing there and `/api/health` reports
 logged by line number, counted in `/api/health` (`reviews_unreadable`), and
 kept in the file. One process owns the journal; the Space runs one.
 
+**Accounts and sessions.** Reviewer accounts are kept in `accounts.jsonl`, next
+to the journal (`BILHARZ_ACCOUNTS_DIR`, by default the journal's directory),
+one line per account, rewritten whole on every change in the same way. If any
+line cannot be read, the file is never written over and accounts cannot be
+created or changed until it is repaired (`accounts_writable` in `/api/health`).
+Sessions are not stored: the server keeps the SHA-256 hash of each session
+token in memory, so a restart signs everyone out. Every request reads the
+account again, so an approval, a role change or a disabled account applies at
+once. The reviewer of a review comes from the session (`current_reviewer` in
+`deps.py`), never from the request. A middleware refuses a request that changes
+something when its `Origin` is another site, or when it carries the session
+cookie without an `Origin`. The details are in
+[`api/README.md`](../api/README.md#accounts-and-access).
+
 ## Frontend
 
 [`frontend/src/api.js`](../frontend/src/api.js) is the only code that talks to the
 backend. It converts snake_case responses to camelCase objects, turns errors into
 plain messages (a 502, 503 or 504, or no answer at all, becomes "The server is
-waking up"), shares identical GET requests already in flight, and keeps the
-optional review code in memory only. It also holds the single definition of a
+waking up"), and shares identical GET requests already in flight. It never sees
+the session: the cookie is HttpOnly and the browser sends it with every request
+to the site. It asks `/api/auth/me` who is signed in, and when a review request
+is refused because a session has ended, it asks once more, so the pages show the
+sign-in prompt. The reviewer gate (`ReviewerGate.jsx`) explains the server's
+rule on the Review and Reviews pages; inside another page (the Space's page on
+huggingface.co, where browsers do not send the cookie), the sign-in screens
+offer Bilharz in a new tab instead of a form. It also holds the single definition of a
 waiting and a reviewed sample, and the decision setting in use: the server's
 default until one is chosen on the Performance page. The choice is kept in
 `localStorage` (it is a preference, not personal data), checked against

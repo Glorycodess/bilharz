@@ -52,9 +52,8 @@ Set these in the Space's **Settings → Variables and secrets**:
 
 | Name | Kind | Purpose |
 | --- | --- | --- |
-| `BILHARZ_ADMIN_TOKEN` | Secret | Enables CSV export and deleting reviews |
-| `BILHARZ_REVIEW_CODE` | Secret, optional | Requires a code for reviews |
-| `BILHARZ_REVIEWS_DIR` | Variable | Mount path of the reviews Storage Bucket (`/data`); see below |
+| `BILHARZ_ADMIN_TOKEN` | Secret | Makes the first admin (on the Admin page), and is the fallback for CSV export and deleting reviews. Use a long random value, e.g. `python3 -c "import secrets; print(secrets.token_urlsafe(32))"` |
+| `BILHARZ_REVIEWS_DIR` | Variable | Mount path of the reviews Storage Bucket (`/data`); see below. Accounts are kept there too |
 | `BILHARZ_UPLOAD_TIMEOUT_SECONDS` | Variable, optional | Time allowed for an upload to arrive (default 120); a sample is about 180 MB |
 
 ## Keeping reviews
@@ -76,3 +75,30 @@ the write test at start-up; `false` means it did not (the Space logs say why),
 and reviews are then kept only until the next restart. `reviews_unreadable`
 counts journal lines that could not be read; they are logged by line number and
 left in the file.
+
+## Accounts
+
+Reviewer accounts are kept in `/data/accounts.jsonl` in the same bucket.
+`/api/health` reports `"accounts_writable": true` when the file was read and the
+directory passed the write test. Sessions are held in memory, so a restart or
+a new deployment signs everyone out; accounts are kept.
+
+`BILHARZ_REVIEW_CODE` is no longer used: remove it from the Space secrets if it
+is set (the Space logs a warning while it is).
+
+**The first admin.** Sign up on the app at https://iamglory-bilharz.hf.space
+(its own tab, not the huggingface.co page), open **Admin**, and enter the admin
+token. The account becomes an approved admin.
+
+**Deleting an account** (on request; the app has no delete button). The app
+keeps the accounts in memory and rewrites the whole file on every change, so the
+file must not be edited while the Space is running:
+
+1. On the **Admin** page, disable the account. This signs it out everywhere at once.
+2. Pause the Space (**Settings → Pause**).
+3. In the bucket, download `accounts.jsonl`, delete that account's line, and
+   upload it again. If the person also asked for their reviews to be deleted,
+   remove their lines from `reviews.jsonl` the same way (reviews name the
+   account by `reviewer_id`).
+4. Restart the Space and check `/api/health`: `accounts_writable` and
+   `reviews_persistent` must be `true`, and `reviews_unreadable` `0`.

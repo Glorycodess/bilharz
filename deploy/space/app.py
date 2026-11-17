@@ -201,4 +201,8 @@ if __name__ == "__main__":
         port=int(os.environ.get("GRADIO_SERVER_PORT", "7860")),
         proxy_headers=True,
         forwarded_allow_ips="*",
+        # No access log: it would print every visitor's IP address and the page
+        # they asked for. IP addresses are held in memory for the sign-in rate
+        # limits only (bilharz/ratelimit.py) and are never written to a log.
+        access_log=False,
     )

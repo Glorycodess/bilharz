@@ -41,14 +41,16 @@ the approved objectives.
 | Selective prediction and deferral | Defer high-ambiguity samples to a reviewer instead of deciding them (objective 2) | Completed | Notebook 04: three-way triage; referral by confidence AURC 0.095 against 0.206 at random, better in 20 of 20 repetitions; [`figures/fig_risk_coverage_nested.png`](../figures/fig_risk_coverage_nested.png) |
 | Evaluation against the reference standard | Nested cross-validation and bootstrapping; patient-level sensitivity, specificity, coverage rate, risk-coverage curves and AURC against expert microscopy (objective 3) | Completed | See [objective 3, item by item](#objective-3-item-by-item) |
 | Comparison with fixed rules and published results | Show what triage adds over simpler rules and the existing system; beyond the approved objectives | Completed | README, Results §2: any-detection rule 100% / 0%; highest tile 85.6% / 83.6%; tile count 79.4% / 86.7%; random referral 88.8% / 93.3% at the same workload. Published Schistoscope figures (Meulah et al., 2022) given as context, not a like-for-like comparison |
-| Backend API | Serve stored results, analyse uploads, record reviews | Completed | [`api/`](../api/), [`api/README.md`](../api/README.md); 108 backend tests; [testing.md](testing.md#backend-unit-and-integration-tests) |
+| Backend API | Serve stored results, analyse uploads, record reviews | Completed | [`api/`](../api/), [`api/README.md`](../api/README.md); 194 backend tests; [testing.md](testing.md#backend-unit-and-integration-tests) |
 | Deployment | A public, working instance of the system | Completed | Hugging Face Space at https://iamglory-bilharz.hf.space, scoring on ZeroGPU with ONNX on the CPU as fallback; [`deploy/README.md`](../deploy/README.md); [architecture.md](architecture.md) |
-| Reviewer workflow | A technician decides the referred samples | Completed | Queue, Review workspace with the 12 highest-ranked tiles and an egg guide, versioned reviews with conflict detection; [queue](evidence/features/queue.jpg), [review](evidence/features/review-dt40-egg-guide.jpg), [reviews](evidence/features/reviews.jpg) |
+| Reviewer workflow | A technician decides the referred samples | Completed | Queue, Review workspace with the 12 highest-ranked tiles and an egg guide, one review history per sample with versioned edits and conflict detection, each version recorded under the reviewer's name; [queue](evidence/features/queue.jpg), [review](evidence/features/review-dt40-egg-guide.jpg), [reviews](evidence/features/reviews.jpg) |
 | Review persistence | Reviews survive restarts of the server | Completed | SQLite, plus a journal on a Hugging Face Storage Bucket from which the database is rebuilt at start-up ([architecture.md](architecture.md#settings-and-storage), `api/tests/test_journal.py`). On the live app once the bucket is attached ([`deploy/README.md`](../deploy/README.md)) |
 | Decision setting | Choose between review workload and safety | Completed | Two settings (Efficiency, Safety) compared on the Performance page and chosen there for the app, per browser; [Performance](evidence/features/performance-local-setting-control.jpg); `frontend/src/setting.test.js`, end-to-end test "switching the decision setting" |
-| Access control | Keep review data from casual access | Completed | An optional review access code for reading and writing reviews, and an admin token for export and deletion ([architecture.md](architecture.md#settings-and-storage)) |
+| Access control | Keep review data from casual access | Completed; reviewer accounts added after the final report | Reviewer accounts approved by an admin, with roles (reviewer, admin), Argon2 password hashes, server-side sessions, rate limits and a cross-site request check; recording and reading reviews need an approved reviewer, and results stay open. The admin token makes the first admin and is the fallback for export and deletion ([below](#reviewer-accounts-added-after-the-final-report); [`api/README.md`](../api/README.md#accounts-and-access); [testing.md](testing.md#security-and-input-validation)). Replaced the optional review access code |
 
-Screens of the built system, captured from the live app at 1440 × 900:
+Screens of the built system at 1440 × 900, captured on 17 November from a local
+build of the current code with demonstration accounts ("Demo Admin", "Demo
+Reviewer"), because reviewer accounts are not yet on the live app:
 [landing](evidence/features/landing.jpg),
 [queue](evidence/features/queue.jpg),
 [DT40, referred](evidence/features/result-dt40-referred.jpg),
@@ -57,12 +59,16 @@ Screens of the built system, captured from the live app at 1440 × 900:
 [review with the egg guide](evidence/features/review-dt40-egg-guide.jpg),
 [reviews](evidence/features/reviews.jpg),
 [performance](evidence/features/performance.jpg),
-[analyse](evidence/features/analyse.jpg), and the
-[server waking up](evidence/features/server-waking-up.jpg) (reproduced locally
-with the backend stopped). The decision-setting control is not yet on the live
-app, so [its screenshot](evidence/features/performance-local-setting-control.jpg)
-is from a local build. The script is
-[`frontend/scripts/capture-features.mjs`](../frontend/scripts/capture-features.mjs).
+[analyse](evidence/features/analyse.jpg),
+[sign in](evidence/features/sign-in.jpg),
+[create an account](evidence/features/sign-up.jpg),
+[the review page before signing in](evidence/features/review-sign-in-prompt.jpg),
+[admin](evidence/features/admin.jpg), and the
+[server waking up](evidence/features/server-waking-up.jpg) (reproduced with the
+backend stopped). The [decision-setting control](evidence/features/performance-local-setting-control.jpg)
+was captured on its own, earlier, from a local build. The script is
+[`frontend/scripts/capture-features.mjs`](../frontend/scripts/capture-features.mjs);
+run against the live app once the accounts are deployed, it replaces these.
 
 ## Objective 3, item by item
 
@@ -107,7 +113,32 @@ random referral in 20 of 20 repetitions (notebook 04).
 defined, referred samples are assumed to be read correctly by a reviewer,
 simulated against the expert labels; no human participants were involved. The
 reviewer workflow is built and tested, but its effect on accuracy was not
-measured with real reviewers.
+measured with real reviewers. How the final figures change if reviewers are
+95% to 80% accurate is computed in [testing.md](testing.md#reviewer-accuracy).
+
+### Reviewer accounts, added after the final report
+
+After the final report, following feedback from the facilitator, the optional
+review access code was replaced by reviewer accounts, so that every review
+records who made it. A reviewer signs up with a name, an email address and a
+password; the account starts as pending, and an admin approves it before it can
+record or read reviews. Results, the queue and uploads stay open to everyone,
+and a review's verdict stays public while its note and the reviewer's name are
+shown only to approved reviewers. Passwords are stored as Argon2id hashes;
+sessions are random tokens in an HttpOnly, Secure, SameSite=Lax cookie, held
+only as hashes in server memory, ending after 8 hours idle or 7 days; failed
+sign-ins are rate-limited per account and per address; requests from other
+sites are refused. The first admin is made with the existing admin token, which
+stays as the fallback for exporting and deleting reviews. A forgotten password
+is reset with a one-time link an admin makes; no email is sent. The audit trail
+gained the reviewer of every version, taken from the session; reviews from
+before have no reviewer. A second, separate review of an already reviewed
+sample is now refused, so each sample has one review history. Accounts are
+kept with the reviews in the private Storage Bucket. Inside the huggingface.co
+page, where browsers do not keep the sign-in cookie, the app offers Bilharz in
+its own tab. The [privacy policy](../frontend/src/pages/Privacy.jsx) page and
+[`api/README.md`](../api/README.md#accounts-and-access) describe what is stored;
+the tests are in [testing.md](testing.md#security-and-input-validation).
 
 ## Research questions
 
@@ -131,3 +162,4 @@ here to the built screens.
 | Sample review | [Review workspace](evidence/features/review-dt40-egg-guide.jpg) |
 | Batch report | [Reviews](evidence/features/reviews.jpg) with CSV export, and [Performance](evidence/features/performance.jpg) |
 | Decision settings | The [decision setting](evidence/features/performance-local-setting-control.jpg), chosen on the Performance page |
+| Sign in | [Sign in](evidence/features/sign-in.jpg) and [reviewer accounts](evidence/features/admin.jpg), added after the final report; the review access code it first became was replaced |
