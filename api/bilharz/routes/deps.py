@@ -1,5 +1,7 @@
-"""What the routers share: app state, the decision setting, and the secret checks."""
+"""What the routers share: app state, the decision setting, the signed-in
+reviewer, and the secret checks."""
 import hmac
+from dataclasses import dataclass
 
 from fastapi import Header, HTTPException, Request
 
@@ -18,6 +20,21 @@ def rule_for(request: Request, setting: str | None) -> Rule:
     except KeyError:
         names = ", ".join(config.rules)
         raise HTTPException(422, f"Unknown setting. Use one of: {names}.") from None
+
+
+@dataclass(frozen=True)
+class Reviewer:
+    """The account a review is recorded under."""
+
+    id: int
+    name: str
+
+
+def current_reviewer(request: Request) -> Reviewer | None:
+    """The signed-in reviewer, from the server-side session; None if nobody is
+    signed in. A review's reviewer comes only from here, never from the request
+    body. Until accounts exist nothing sets it, and reviews have no reviewer."""
+    return getattr(request.state, "reviewer", None)
 
 
 def require_known(request: Request, sample_id: str) -> None:

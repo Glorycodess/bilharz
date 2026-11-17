@@ -6,9 +6,9 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from .. import schemas
-from ..reviews import ReviewConflict, ReviewNotFound
+from ..reviews import ReviewConflict, ReviewExists, ReviewNotFound
 from ..triage import decide
-from .deps import require_admin, require_known, require_review_code, state
+from .deps import Reviewer, current_reviewer, require_admin, require_known, require_review_code, state
 
 router = APIRouter()
 
@@ -21,17 +21,33 @@ router = APIRouter()
     responses={
         403: {"description": "Review code required or wrong"},
         404: {"description": "Unknown sample"},
-        409: {"description": "`supersedes` is no longer the current review"},
+        409: {"description": "The sample already has a review, or `supersedes` is no longer the current one"},
         422: {"description": "Invalid review, or `supersedes` is not a review of this sample"},
     },
 )
-def add_review(request: Request, sample_id: str, review: schemas.ReviewIn):
-    """Record a review. To change a sample's verdict, send `supersedes` with the id of
-    its current review: a new version is added and the old one is kept."""
+def add_review(
+    request: Request,
+    sample_id: str,
+    review: schemas.ReviewIn,
+    reviewer: Reviewer | None = Depends(current_reviewer),
+):
+    """Record a sample's review. A sample has one review: to change its verdict, send
+    `supersedes` with the id of its current review, and a new version is added while
+    the old one is kept. The reviewer is the signed-in account, never a request field."""
     require_known(request, sample_id)
     note = review.note.strip() if review.note else None
     try:
-        return state(request).reviews.add(sample_id, review.verdict, note or None, review.tester_code, review.supersedes)
+        return state(request).reviews.add(
+            sample_id,
+            review.verdict,
+            note or None,
+            review.tester_code,
+            review.supersedes,
+            reviewer_id=reviewer.id if reviewer else None,
+            reviewer_name=reviewer.name if reviewer else None,
+        )
+    except ReviewExists:
+        raise HTTPException(409, "This sample already has a review. Edit the existing review instead.") from None
     except ReviewNotFound:
         raise HTTPException(422, "That review does not exist for this sample.") from None
     except ReviewConflict:
@@ -81,7 +97,12 @@ def list_reviews(
     return _reviews_with_decisions(request, view, verdict, sample_id)
 
 
-CSV_FIELDS = ["review_id", "sample_id", "system_decision", "verdict", "note", "tester_code", "created_at", "supersedes"]
+# reviewer_id and reviewer were added last, so existing readers of the columns before them still work.
+CSV_FIELDS = [
+    "review_id", "sample_id", "system_decision", "verdict", "note", "tester_code", "created_at", "supersedes",
+    "reviewer_id", "reviewer",
+]
+UNKNOWN_REVIEWER = "unknown"
 FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
 
 
@@ -107,7 +128,8 @@ def export_reviews(
     sample_id: str | None = None,
 ):
     """Every version of every review as a CSV download, newest first: the full history.
-    Needs the admin token in X-Admin-Token."""
+    `reviewer` is "unknown" for reviews recorded before accounts. Needs the admin
+    token in X-Admin-Token."""
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(CSV_FIELDS)
@@ -122,6 +144,8 @@ def export_reviews(
                 _csv_safe(r["tester_code"]),
                 r["created_at"],
                 r["supersedes"] if r["supersedes"] is not None else "",
+                r["reviewer_id"] if r["reviewer_id"] is not None else "",
+                _csv_safe(r["reviewer_name"]) if r["reviewer_name"] is not None else UNKNOWN_REVIEWER,
             ]
         )
     return Response(

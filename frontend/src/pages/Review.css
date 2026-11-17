@@ -147,6 +147,14 @@
   margin-top: 16px;
 }
 
+.decision__existing {
+  margin-top: 12px;
+}
+
+.decision__existing + .decision__next {
+  align-items: center;
+}
+
 .decision__error {
   margin: -4px 0 12px;
   font-size: 14px;

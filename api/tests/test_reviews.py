@@ -22,8 +22,10 @@ def test_create_and_list(make_client):
         listed = c.get("/api/reviews").json()
         assert [x["sample_id"] for x in listed] == ["DT03", "DT40"]  # newest first
         assert set(listed[0]) == {
-            "id", "sample_id", "verdict", "note", "tester_code", "created_at", "supersedes", "decision", "version_count",
+            "id", "sample_id", "verdict", "note", "tester_code", "created_at", "supersedes", "reviewer_name",
+            "decision", "version_count",
         }
+        assert listed[0]["reviewer_name"] is None  # nobody signed in
 
         queue = {s["id"]: s for s in c.get("/api/samples").json()["samples"]}
         assert queue["DT40"]["review"]["verdict"] == "infected"
@@ -68,19 +70,22 @@ def test_delete_disabled_without_configured_token(make_client):
         assert r.status_code == 403
 
 
-def test_no_personal_columns(make_client):
+def test_review_columns(make_client):
+    """The reviewer's account id and name, and nothing else about them: no IP address or user agent."""
     import sqlite3
     from contextlib import closing
 
     with make_client() as c, closing(sqlite3.connect(c.app.state.settings.reviews_db)) as db:
         cols = [row[1] for row in db.execute("PRAGMA table_info(reviews)")]
-    assert cols == ["id", "sample_id", "verdict", "note", "tester_code", "created_at", "supersedes"]
+    assert cols == [
+        "id", "sample_id", "verdict", "note", "tester_code", "created_at", "supersedes", "reviewer_id", "reviewer_name",
+    ]
 
 
 def test_latest_review_wins(make_client):
     with make_client() as c:
-        c.post("/api/reviews/DT40", json={"verdict": "healthy", "note": "first look"})
-        c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "second look", "tester_code": "T2"})
+        first = c.post("/api/reviews/DT40", json={"verdict": "healthy", "note": "first look"}).json()
+        c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "second look", "tester_code": "T2", "supersedes": first["id"]})
 
         queue = {s["id"]: s for s in c.get("/api/samples").json()["samples"]}
         assert set(queue["DT40"]["review"]) == {"verdict", "created_at"}
@@ -90,7 +95,7 @@ def test_latest_review_wins(make_client):
         assert result["review_count"] == 2
         assert result["review"]["verdict"] == "infected"
         assert result["review"]["note"] == "second look" and result["review"]["tester_code"] == "T2"
-        assert set(result["review"]) == {"id", "verdict", "created_at", "note", "tester_code", "details_hidden"}
+        assert set(result["review"]) == {"id", "verdict", "created_at", "note", "tester_code", "reviewer_name", "details_hidden"}
 
         # The earlier review stays in the audit trail.
         history = c.get("/api/reviews", params={"sample_id": "DT40", "view": "all"}).json()
@@ -123,8 +128,9 @@ def test_csv_export(make_client):
     with make_client() as c:
         c.post("/api/reviews/DT40", json={"verdict": "infected", "note": "=HYPERLINK(\"http://x\")", "tester_code": "T1"})
         c.post("/api/reviews/DT03", json={"verdict": "healthy", "note": "Debris only, see tile 2"})
+        previous = None
         for note in ["+1", "-2", "@SUM(A1)"]:
-            c.post("/api/reviews/DT05", json={"verdict": "infected", "note": note})
+            previous = c.post("/api/reviews/DT05", json={"verdict": "infected", "note": note, "supersedes": previous}).json()["id"]
 
         r = c.get("/api/reviews.csv", headers=ADMIN)
         assert r.status_code == 200
@@ -133,7 +139,9 @@ def test_csv_export(make_client):
         rows = list(csv.reader(io.StringIO(r.text)))
         assert rows[0] == [
             "review_id", "sample_id", "system_decision", "verdict", "note", "tester_code", "created_at", "supersedes",
+            "reviewer_id", "reviewer",
         ]
+        assert all(row[8:] == ["", "unknown"] for row in rows[1:])  # recorded with nobody signed in
         by_note = {row[4]: row for row in rows[1:]}
         assert "'=HYPERLINK(\"http://x\")" in by_note
         assert by_note["'=HYPERLINK(\"http://x\")"][1:4] == ["DT40", "referred", "infected"]

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { TILES_PER_IMAGE, getConfig, getSample, isReviewed } from '../api.js'
 import { pending, useApi } from '../useApi.js'
-import { VERDICT_WORDS, decisionSentence, formatCount, formatTime, tilesLookLikeEggs } from '../format.js'
+import { VERDICT_WORDS, decisionSentence, formatCount, formatTime, reviewerLabel, tilesLookLikeEggs } from '../format.js'
 import Button from '../components/Button.jsx'
 import DecisionScale from '../components/DecisionScale.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
@@ -197,6 +197,7 @@ function ReviewerVerdict({ id, review, count }) {
         <time className="muted" dateTime={review.createdAt}>
           {formatTime(review.createdAt)}
         </time>
+        {!review.detailsHidden && <span className="muted">by {reviewerLabel(review) ?? 'an unknown reviewer'}</span>}
         {count > 1 && <span className="muted">{count} versions</span>}
         <Link to={`/review/${id}?edit=1`} className="text-link">
           Edit review

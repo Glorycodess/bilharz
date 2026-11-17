@@ -13,9 +13,9 @@ the same machine over a home connection.
 
 | Strategy | Tool | Result |
 |---|---|---|
-| Backend unit and integration | pytest | 114 passed |
-| Frontend unit and component | Vitest, Testing Library | 39 passed |
-| End to end | Playwright (Chromium) | 8 passed |
+| Backend unit and integration | pytest | 137 passed |
+| Frontend unit and component | Vitest, Testing Library | 50 passed |
+| End to end | Playwright (Chromium) | 10 passed |
 | API contract | `npm run check:api` | All 5 endpoints match, with and without a review in the database |
 | Model validation | notebooks 04 and 05, `scripts/bootstrap_intervals.py` | Nested cross-validation reproduced; bootstrap intervals beside Clopper–Pearson; ONNX reproduces all 65 decisions |
 | Reviewer accuracy | `scripts/reviewer_sensitivity.py` | At 80% reviewer accuracy: 85.2% / 89.9% (triage), 84.4% / 83.3% (safety margin) |
@@ -46,7 +46,7 @@ lines, a directory that fails the write test, and a journal write that fails
 (the review is then not stored). The GPU scorer's selection and fallback are
 tested without torch installed (the import is blocked or the detector replaced).
 
-**Result.** 114 passed in about 42 s
+**Result.** 137 passed in about 40 s
 (`pytest -m "not slow"` skips the one full 117-image analysis).
 
 **Added in this round.** A test that sends four uploads at the same moment
@@ -54,7 +54,13 @@ tested without torch installed (the import is blocked or the detector replaced).
 after a 413, and tests for the new `scorer` field in the analysis response,
 including a GPU scorer that reports its CPU fallback. Later: the reviews
 journal (9 tests) and the GPU scorer's selection and fallback (8 tests); the
-health test now includes `reviews_unreadable`.
+health test now includes `reviews_unreadable`. Then the audit trail (23 tests):
+the reviewer is taken only from the server-side session (a reviewer in the
+request body is refused), a second first review of a sample is refused with
+409, also when eight arrive at once, and the journal is read in both
+directions: every line in the deployed format (58, as on the live Space) is
+read by the new code, and a review without a reviewer is still written in
+exactly that format, checked with a copy of the deployed parser.
 
 ### Frontend unit and component tests
 
@@ -78,7 +84,7 @@ setting (the server's default until one is chosen, the choice sent with the queu
 a sample and an upload but not with reviews, kept after a reload, a stored setting
 the server does not know dropped, and blocked storage handled).
 
-**Result.** 39 tests in 7 files, all passing (`npm test`, about 2 seconds).
+**Result.** 50 tests in 9 files, all passing (`npm test`, about 2 seconds).
 
 ### End-to-end tests
 
@@ -101,7 +107,7 @@ second copy of the site whose backend is not running.
 | Upload | The real DT40 sample (117 images) gives Referred, with the time taken |
 | Backend stopped | The site says the server is waking up and will try again |
 
-**Result.** 8 of 8 passed (about 38 seconds, 31 of them the upload).
+**Result.** 10 of 10 passed (about 40 seconds, most of them the upload).
 
 ### API contract check
 

@@ -36,6 +36,7 @@ const SAMPLE = {
     created_at: '2026-10-26T15:07:00+00:00',
     note: 'One egg, tile 7',
     tester_code: 'T4',
+    reviewer_name: 'Ada Obi',
     details_hidden: false,
   },
   review_count: 2,
@@ -72,6 +73,7 @@ describe('snake_case to camelCase', () => {
         createdAt: '2026-10-26T15:07:00+00:00',
         note: 'One egg, tile 7',
         testerCode: 'T4',
+        reviewerName: 'Ada Obi',
         supersedes: null,
         detailsHidden: false,
       },
@@ -91,6 +93,7 @@ describe('snake_case to camelCase', () => {
       createdAt: 'x',
       note: null,
       testerCode: null,
+      reviewerName: null,
       supersedes: null,
       detailsHidden: false,
     })

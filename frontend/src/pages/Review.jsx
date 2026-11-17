@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getConfig, getQueue, getSample, isWaiting, postReview } from '../api.js'
 import { pending, useApi } from '../useApi.js'
-import { OUTCOME_WORDS, confidentTiles, formatCount, formatTime } from '../format.js'
+import { OUTCOME_WORDS, VERDICT_WORDS, confidentTiles, formatCount, formatTime, reviewerLabel } from '../format.js'
 import Button from '../components/Button.jsx'
 import EggGuide from '../components/EggGuide.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
@@ -41,6 +41,10 @@ function ReviewSample({ id, editing }) {
 
   const current = sample.data?.review ?? null
   const amending = editing && current !== null
+  // A sample has one review history: a second first review is refused (409),
+  // so a reviewed sample opened without ?edit=1 points to editing instead. Not
+  // right after this page recorded the review, so its confirmation stays.
+  const alreadyReviewed = !editing && current !== null && save.status !== 'saved'
   // Load the current review into the form, and again if it changes (after a 409).
   // Wait while its note is hidden (no review code yet), or saving would erase it.
   if (amending && !current.detailsHidden && prefilledFrom !== current.id) {
@@ -124,94 +128,127 @@ function ReviewSample({ id, editing }) {
         <div className="review__side">
           <EggGuide />
           <ReviewCodeGate>
-            <aside className="decision" aria-labelledby="decision-title">
-              <form onSubmit={onSubmit}>
-                <h2 className="section-title" id="decision-title">
-                  Your decision
-                </h2>
-                <div className="decision__choices" role="group" aria-labelledby="decision-title">
-                  {CHOICES.map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      className={`decision__choice decision__choice--${c.outcome}`}
-                      aria-pressed={choice === c.value}
-                      onClick={() => setChoice(c.value)}
-                      disabled={busy}
-                    >
-                      <span className="decision__choice-label">{c.label}</span>
-                      <span className="decision__choice-hint">{c.hint}</span>
-                    </button>
-                  ))}
-                </div>
+            {alreadyReviewed ? (
+              <AlreadyReviewed id={id} review={current} error={save.error} />
+            ) : (
+              <aside className="decision" aria-labelledby="decision-title">
+                <form onSubmit={onSubmit}>
+                  <h2 className="section-title" id="decision-title">
+                    Your decision
+                  </h2>
+                  <div className="decision__choices" role="group" aria-labelledby="decision-title">
+                    {CHOICES.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        className={`decision__choice decision__choice--${c.outcome}`}
+                        aria-pressed={choice === c.value}
+                        onClick={() => setChoice(c.value)}
+                        disabled={busy}
+                      >
+                        <span className="decision__choice-label">{c.label}</span>
+                        <span className="decision__choice-hint">{c.hint}</span>
+                      </button>
+                    ))}
+                  </div>
 
-                <label className="field-label" htmlFor="review-note">
-                  Note <span className="muted">(optional)</span>
-                </label>
-                <textarea
-                  id="review-note"
-                  className="input decision__note"
-                  rows={3}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  maxLength={500}
-                  disabled={busy}
-                  aria-describedby="review-note-hint"
-                />
-                <p className="decision__hint muted small" id="review-note-hint">
-                  Don&rsquo;t include names or other personal information.
-                </p>
-
-                {amending && (
-                  <p className="decision__editing muted small">
-                    Editing the review from {formatTime(current.createdAt)}. It stays in the history as an earlier
-                    version.
+                  <label className="field-label" htmlFor="review-note">
+                    Note <span className="muted">(optional)</span>
+                  </label>
+                  <textarea
+                    id="review-note"
+                    className="input decision__note"
+                    rows={3}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    maxLength={500}
+                    disabled={busy}
+                    aria-describedby="review-note-hint"
+                  />
+                  <p className="decision__hint muted small" id="review-note-hint">
+                    Don&rsquo;t include names or other personal information.
                   </p>
-                )}
-                <button type="submit" className="btn btn--primary decision__submit" disabled={!choice || busy}>
-                  {save.status === 'saving'
-                    ? amending
-                      ? 'Saving…'
-                      : 'Recording…'
-                    : amending
-                      ? 'Save changes'
-                      : 'Record decision'}
-                </button>
-                <p className="decision__status" role="status">
-                  {save.status === 'saved' &&
-                    (save.next
-                      ? `Decision recorded for ${id}. Opening ${save.next}.`
-                      : `Decision recorded for ${id}. No referred samples left to review.`)}
-                </p>
-                {save.error && (
-                  <p className="decision__error" role="alert">
-                    {save.error}
-                  </p>
-                )}
-                <p className="muted small">Decisions are logged for audit and not used to retrain the model.</p>
-              </form>
 
-              {!amending && (
-                <div className="decision__next">
-                  {nextId ? (
-                    <>
-                      <span className="muted">Next in queue</span>
-                      <Button to={`/review/${nextId}`} variant="link">
-                        {nextId}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button to="/queue" variant="link">
-                      Back to queue
-                    </Button>
+                  {amending && (
+                    <p className="decision__editing muted small">
+                      Editing the review from {formatTime(current.createdAt)}. It stays in the history as an earlier
+                      version.
+                    </p>
                   )}
-                </div>
-              )}
-            </aside>
+                  <button type="submit" className="btn btn--primary decision__submit" disabled={!choice || busy}>
+                    {save.status === 'saving'
+                      ? amending
+                        ? 'Saving…'
+                        : 'Recording…'
+                      : amending
+                        ? 'Save changes'
+                        : 'Record decision'}
+                  </button>
+                  <p className="decision__status" role="status">
+                    {save.status === 'saved' &&
+                      (save.next
+                        ? `Decision recorded for ${id}. Opening ${save.next}.`
+                        : `Decision recorded for ${id}. No referred samples left to review.`)}
+                  </p>
+                  {save.error && (
+                    <p className="decision__error" role="alert">
+                      {save.error}
+                    </p>
+                  )}
+                  <p className="muted small">Decisions are logged for audit and not used to retrain the model.</p>
+                </form>
+
+                {!amending && (
+                  <div className="decision__next">
+                    {nextId ? (
+                      <>
+                        <span className="muted">Next in queue</span>
+                        <Button to={`/review/${nextId}`} variant="link">
+                          {nextId}
+                        </Button>
+                      </>
+                    ) : (
+                      <Button to="/queue" variant="link">
+                        Back to queue
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </aside>
+            )}
           </ReviewCodeGate>
         </div>
       </div>
     </div>
+  )
+}
+
+// Shown instead of the form when the sample already has a review.
+function AlreadyReviewed({ id, review, error }) {
+  const by = review.detailsHidden ? null : reviewerLabel(review)
+  return (
+    <aside className="decision" aria-labelledby="decision-title">
+      <h2 className="section-title" id="decision-title">
+        Already reviewed
+      </h2>
+      {error && (
+        <p className="decision__error" role="alert">
+          {error}
+        </p>
+      )}
+      <p className="decision__existing">
+        {id} was reviewed as <strong>{VERDICT_WORDS[review.verdict]}</strong> on {formatTime(review.createdAt)}
+        {by ? ` by ${by}` : ''}. A sample has one review; change it by editing, and the earlier version is kept.
+      </p>
+      <div className="decision__next">
+        <Button to={`/review/${id}?edit=1`} variant="outline">
+          Edit the review
+        </Button>
+        <Button to="/queue" variant="link">
+          Back to queue
+        </Button>
+      </div>
+    </aside>
   )
 }
 

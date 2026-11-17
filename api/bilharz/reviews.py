@@ -1,11 +1,14 @@
 """Technician reviews in SQLite.
 
-Only the review itself is stored: no names, IP addresses or user agents. The
-tester code is optional and anonymous.
+A review stores the verdict, an optional note, the time, and who recorded it:
+the signed-in reviewer's account id and name, taken from the server-side
+session, never from the request. Reviews recorded before accounts existed
+have no reviewer. No IP addresses or user agents are stored.
 
 Reviews are never overwritten. A sample's current review is its latest one; a
 change is a new review that names the one it replaces (`supersedes`), and every
-earlier version stays as the audit trail.
+earlier version stays as the audit trail. A sample has one review history: a
+second, separate first review of the same sample is refused (ReviewExists).
 
 Where the database's disk does not survive a restart (the Space), a
 ReviewJournal on persistent storage keeps every review as well, and the
@@ -30,11 +33,25 @@ CREATE TABLE IF NOT EXISTS reviews (
     note TEXT,
     tester_code TEXT,
     created_at TEXT NOT NULL,
-    supersedes INTEGER REFERENCES reviews (id)
+    supersedes INTEGER REFERENCES reviews (id),
+    reviewer_id INTEGER,
+    reviewer_name TEXT
 )
 """
 
-COLUMNS = ("id", "sample_id", "verdict", "note", "tester_code", "created_at", "supersedes")
+# Every review has the REQUIRED fields. The OPTIONAL ones were added later:
+# journal lines from before then do not have them, and a line only has them
+# when they are set, so a review without a reviewer is written exactly as
+# before and older versions of this code can still read it.
+REQUIRED = ("id", "sample_id", "verdict", "note", "tester_code", "created_at", "supersedes")
+OPTIONAL = ("reviewer_id", "reviewer_name")
+COLUMNS = REQUIRED + OPTIONAL
+# Columns added to the table after it was first created, with their types.
+ADDED_COLUMNS = {
+    "supersedes": "INTEGER REFERENCES reviews (id)",
+    "reviewer_id": "INTEGER",
+    "reviewer_name": "TEXT",
+}
 SELECT = f"SELECT {', '.join(COLUMNS)} FROM reviews"
 
 
@@ -44,6 +61,10 @@ class ReviewNotFound(Exception):
 
 class ReviewConflict(Exception):
     """`supersedes` names a review that is no longer the sample's current one."""
+
+
+class ReviewExists(Exception):
+    """A new review (no `supersedes`) for a sample that already has one."""
 
 
 class ReviewJournal:
@@ -136,26 +157,38 @@ class ReviewJournal:
     def append(self, row: dict) -> None:
         """Add one review; raises OSError if it could not be written."""
         with self._lock:
-            lines = self._lines + [json.dumps(row, ensure_ascii=False)]
+            lines = self._lines + [_review_to_json(row)]
             self._write(lines)
             self._lines = lines
 
     def replace_all(self, rows: list[dict]) -> None:
         with self._lock:
-            lines = [json.dumps(row, ensure_ascii=False) for row in rows]
+            lines = [_review_to_json(row) for row in rows]
             self._write(lines)
             self._lines = lines
 
 
+def _review_to_json(row: dict) -> str:
+    """A review as one journal line: every required field, and the optional ones that are set."""
+    kept = {c: row[c] for c in REQUIRED}
+    kept.update({c: row[c] for c in OPTIONAL if row.get(c) is not None})
+    return json.dumps(kept, ensure_ascii=False)
+
+
 def _review_from_json(line: str) -> dict | None:
-    """A journal line as a review row, or None if it is not a complete, valid review."""
+    """A journal line as a review row, or None if it is not a complete, valid review.
+
+    The required fields must all be there; optional fields that are missing are
+    None. Fields this version does not know are ignored (they stay in the file),
+    so a journal written by a later version can still be read."""
     try:
         row = json.loads(line)
     except ValueError:
         return None
-    if not isinstance(row, dict) or set(row) != set(COLUMNS):
+    if not isinstance(row, dict) or not set(REQUIRED) <= set(row):
         return None
-    optional_text = (row["note"], row["tester_code"])
+    row = {c: row.get(c) for c in COLUMNS}
+    optional_text = (row["note"], row["tester_code"], row["reviewer_name"])
     valid = (
         type(row["id"]) is int
         and row["id"] > 0
@@ -164,8 +197,9 @@ def _review_from_json(line: str) -> dict | None:
         and all(v is None or isinstance(v, str) for v in optional_text)
         and isinstance(row["created_at"], str)
         and (row["supersedes"] is None or type(row["supersedes"]) is int)
+        and (row["reviewer_id"] is None or (type(row["reviewer_id"]) is int and row["reviewer_id"] > 0))
     )
-    return {c: row[c] for c in COLUMNS} if valid else None
+    return row if valid else None
 
 
 class ReviewStore:
@@ -182,9 +216,12 @@ class ReviewStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as db:
             db.execute(SCHEMA)
-            # Databases from before review editing: add the column, keep every review.
-            if "supersedes" not in {row[1] for row in db.execute("PRAGMA table_info(reviews)")}:
-                db.execute("ALTER TABLE reviews ADD COLUMN supersedes INTEGER REFERENCES reviews (id)")
+            # Databases from before review editing or reviewer accounts: add
+            # the missing columns, keep every review.
+            existing = {row[1] for row in db.execute("PRAGMA table_info(reviews)")}
+            for column, kind in ADDED_COLUMNS.items():
+                if column not in existing:
+                    db.execute(f"ALTER TABLE reviews ADD COLUMN {column} {kind}")
         if journal is not None and journal.readable:
             self._sync_with(journal)
 
@@ -235,29 +272,31 @@ class ReviewStore:
         note: str | None,
         tester_code: str | None,
         supersedes: int | None = None,
+        reviewer_id: int | None = None,
+        reviewer_name: str | None = None,
     ) -> dict:
-        """Insert a review, or a new version of the current one (`supersedes`).
-        Raises ReviewNotFound or ReviewConflict; returns the stored row."""
+        """Insert a sample's first review, or a new version of its current one
+        (`supersedes`). Raises ReviewExists, ReviewNotFound or ReviewConflict;
+        returns the stored row."""
         created = datetime.now(timezone.utc).isoformat(timespec="seconds")
         with self._connect() as db:
             # Hold the write lock from the check to the insert, so two edits of
             # the same review can't both succeed.
             db.execute("BEGIN IMMEDIATE")
+            current = db.execute("SELECT MAX(id) FROM reviews WHERE sample_id = ?", (sample_id,)).fetchone()[0]
+            if supersedes is None and current is not None:
+                raise ReviewExists
             if supersedes is not None:
                 old = db.execute("SELECT sample_id FROM reviews WHERE id = ?", (supersedes,)).fetchone()
                 if old is None or old[0] != sample_id:
                     raise ReviewNotFound
-                current = db.execute(
-                    "SELECT MAX(id) FROM reviews WHERE sample_id = ?", (sample_id,)
-                ).fetchone()[0]
                 if current != supersedes:
                     raise ReviewConflict
+            values = (sample_id, verdict, note, tester_code, created, supersedes, reviewer_id, reviewer_name)
             cur = db.execute(
-                "INSERT INTO reviews (sample_id, verdict, note, tester_code, created_at, supersedes) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (sample_id, verdict, note, tester_code, created, supersedes),
+                f"INSERT INTO reviews ({', '.join(COLUMNS[1:])}) VALUES ({', '.join('?' * len(values))})", values
             )
-            row = dict(zip(COLUMNS, (cur.lastrowid, sample_id, verdict, note, tester_code, created, supersedes)))
+            row = dict(zip(COLUMNS, (cur.lastrowid, *values)))
             # Inside the transaction: if the journal can't be written, the insert is rolled back.
             if self._journal is not None and self._journal.writable:
                 self._journal.append(row)

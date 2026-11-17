@@ -34,8 +34,9 @@ def sample(
     setting: str | None = None,
     x_review_code: str | None = Header(default=None),
 ):
-    """One sample's result. With a review code configured, the review's note and
-    tester code are only included when the code is sent; the verdict always is."""
+    """One sample's result. With a review code configured, the review's note,
+    tester code and reviewer are only included when the code is sent; the
+    verdict always is."""
     require_known(request, sample_id)
     rule = rule_for(request, setting)
     store = state(request).samples
@@ -43,7 +44,7 @@ def sample(
     score, image, tile = store.highest(sample_id)
     review, review_count = state(request).reviews.history(sample_id)
     if review and not has_review_access(request, x_review_code):
-        review = {**review, "note": None, "tester_code": None, "details_hidden": True}
+        review = {**review, "note": None, "tester_code": None, "reviewer_name": None, "details_hidden": True}
     return dict(
         id=sample_id,
         source="stored",

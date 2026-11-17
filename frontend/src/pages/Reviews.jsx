@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getReviews } from '../api.js'
 import { pending, useApi } from '../useApi.js'
-import { formatFull, formatRelative } from '../format.js'
+import { formatFull, formatRelative, reviewerLabel } from '../format.js'
 import ExportDialog from '../components/ExportDialog.jsx'
 import OutcomeMark from '../components/OutcomeMark.jsx'
 import PageHeader from '../components/PageHeader.jsx'
@@ -122,7 +122,7 @@ function ReviewsTable() {
                   {showDecision && <th scope="col">Bilharz decision</th>}
                   <th scope="col">Reviewer verdict</th>
                   <th scope="col">Note</th>
-                  <th scope="col">Tester</th>
+                  <th scope="col">Reviewer</th>
                   <th scope="col">Time</th>
                   <th scope="col">
                     <span className="visually-hidden">Actions</span>
@@ -157,7 +157,7 @@ function ReviewsTable() {
                           <VerdictMark verdict={r.verdict} />
                         </td>
                         <NoteCell note={r.note} />
-                        <td>{r.testerCode}</td>
+                        <ReviewerCell review={r} />
                         <TimeCell iso={r.createdAt} />
                         <td className="queue__action">
                           <Link
@@ -180,7 +180,7 @@ function ReviewsTable() {
                               <VerdictMark verdict={v.verdict} />
                             </td>
                             <NoteCell note={v.note} />
-                            <td>{v.testerCode}</td>
+                            <ReviewerCell review={v} />
                             <TimeCell iso={v.createdAt} />
                             <td />
                           </tr>
@@ -202,6 +202,12 @@ function ReviewsTable() {
       )}
     </>
   )
+}
+
+// Reviews from before accounts were recorded without a reviewer.
+function ReviewerCell({ review }) {
+  const label = reviewerLabel(review)
+  return <td>{label ?? <span className="muted">Unknown</span>}</td>
 }
 
 function NoteCell({ note }) {

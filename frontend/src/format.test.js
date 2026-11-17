@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decisionSentence } from './format.js'
+import { decisionSentence, reviewerLabel } from './format.js'
 
 const SAFETY = { label: 'Safety', clearBelow: 1, flagAbove: 35 }
 const EFFICIENCY = { label: 'Efficiency', clearBelow: 1, flagAbove: 12 }
@@ -45,5 +45,13 @@ describe('decisionSentence', () => {
     ]) {
       expect(decisionSentence(decision, n, SAFETY)).not.toMatch(/region/i)
     }
+  })
+})
+
+describe('reviewerLabel', () => {
+  it("names the reviewer, falls back to an older review's tester code, and is null otherwise", () => {
+    expect(reviewerLabel({ reviewerName: 'Ada Obi', testerCode: null })).toBe('Ada Obi')
+    expect(reviewerLabel({ reviewerName: null, testerCode: 'T4' })).toBe('Tester T4')
+    expect(reviewerLabel({ reviewerName: null, testerCode: null })).toBeNull()
   })
 })

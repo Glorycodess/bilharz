@@ -184,6 +184,8 @@ function toReview(r) {
     createdAt: r.created_at,
     note: r.note ?? null,
     testerCode: r.tester_code ?? null,
+    // Who recorded it: null for reviews from before accounts (or when hidden).
+    reviewerName: r.reviewer_name ?? null,
     supersedes: r.supersedes ?? null,
     // The server withheld the note and tester code (review code required, not sent).
     detailsHidden: r.details_hidden ?? false,

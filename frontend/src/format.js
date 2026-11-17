@@ -26,6 +26,14 @@ export function decisionSentence(decision, n, { clearBelow, flagAbove, label }) 
   return `Referred: ${seen}, too many to clear and too few to confirm (confirming takes more than ${flagAbove} ${setting}), so a technician should review it.`
 }
 
+// Who recorded a review: the reviewer's name, the anonymous tester code of an
+// older review, or null when neither was recorded.
+export function reviewerLabel({ reviewerName, testerCode }) {
+  if (reviewerName) return reviewerName
+  if (testerCode) return `Tester ${testerCode}`
+  return null
+}
+
 export function confidentTiles(n) {
   return `${formatCount(n)} confident ${n === 1 ? 'tile' : 'tiles'}`
 }

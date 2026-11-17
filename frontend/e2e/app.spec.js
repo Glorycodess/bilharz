@@ -104,7 +104,17 @@ test('recording a review updates the waiting count and the Reviews page', async 
   const row = page.locator('.reviews__table tbody tr', { hasText: 'DT40' })
   await expect(row).toContainText('Infected')
   await expect(row).toContainText('One egg in the top tile')
+  await expect(row).toContainText('Unknown') // recorded with nobody signed in
   await expect(page.locator('.page-header')).toContainText('1 reviewed · 1 infected · 0 healthy')
+})
+
+test('a reviewed sample offers editing instead of a second review', async ({ page }) => {
+  await page.goto('/review/DT40')
+  await expect(page.getByRole('heading', { name: 'Already reviewed' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Record decision' })).toHaveCount(0)
+  await page.getByRole('link', { name: 'Edit the review' }).click()
+  await expect(page).toHaveURL(/\/review\/DT40\?edit=1$/)
+  await expect(page.getByRole('button', { name: 'Save changes' })).toBeVisible()
 })
 
 test('editing a review adds a new version and keeps the old one', async ({ page }) => {

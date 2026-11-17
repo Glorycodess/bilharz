@@ -1,7 +1,7 @@
 """Response and request models. Field names are snake_case throughout."""
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .triage import Decision
 
@@ -40,6 +40,9 @@ class LatestReviewDetail(LatestReview):
     id: int = Field(description="Send as `supersedes` to amend this review")
     note: str | None = Field(description="Null when hidden: see details_hidden")
     tester_code: str | None = Field(description="Null when hidden: see details_hidden")
+    reviewer_name: str | None = Field(
+        default=None, description="Who recorded it; null for reviews from before accounts, or when hidden"
+    )
     details_hidden: bool = Field(
         default=False,
         description="True when the server needs a review code and none (or a wrong one) was sent: "
@@ -94,6 +97,10 @@ class AnalysisResult(SampleResult):
 
 
 class ReviewIn(BaseModel):
+    # Unknown fields are refused, so a reviewer can never be sent in the body:
+    # it comes from the session.
+    model_config = ConfigDict(extra="forbid")
+
     verdict: Literal["infected", "healthy"]
     note: str | None = Field(default=None, max_length=500)
     tester_code: str | None = Field(default=None, pattern=r"^T[0-9]{1,3}$")
@@ -108,6 +115,7 @@ class ReviewOut(BaseModel):
     tester_code: str | None
     created_at: str
     supersedes: int | None
+    reviewer_name: str | None = Field(description="Who recorded it; null for reviews from before accounts")
 
 
 class ReviewListItem(ReviewOut):

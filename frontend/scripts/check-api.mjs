@@ -23,6 +23,7 @@ const REVIEW_ITEM = {
   tester_code: nullable('string'),
   created_at: 'string',
   supersedes: nullable('number'),
+  reviewer_name: nullable('string'),
   version_count: 'number',
 }
 
@@ -62,6 +63,7 @@ const CHECKS = [
           created_at: 'string',
           note: nullable('string'),
           tester_code: nullable('string'),
+          reviewer_name: nullable('string'),
           details_hidden: 'boolean',
         }),
       ),
