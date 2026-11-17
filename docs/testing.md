@@ -13,11 +13,12 @@ the same machine over a home connection.
 
 | Strategy | Tool | Result |
 |---|---|---|
-| Backend unit and integration | pytest | 108 passed |
-| Frontend unit and component | Vitest, Testing Library | 38 passed |
+| Backend unit and integration | pytest | 114 passed |
+| Frontend unit and component | Vitest, Testing Library | 39 passed |
 | End to end | Playwright (Chromium) | 8 passed |
 | API contract | `npm run check:api` | All 5 endpoints match, with and without a review in the database |
 | Model validation | notebooks 04 and 05, `scripts/bootstrap_intervals.py` | Nested cross-validation reproduced; bootstrap intervals beside Clopper–Pearson; ONNX reproduces all 65 decisions |
+| Reviewer accuracy | `scripts/reviewer_sensitivity.py` | At 80% reviewer accuracy: 85.2% / 89.9% (triage), 84.4% / 83.3% (safety margin) |
 | Real samples | `scripts/fetch_samples.py`, `/api/analyse` | 3 of 3 decisions match, locally and live |
 | Security and input validation | pytest, `scripts/stress_backend.py` | Every rejected upload gets its documented status; the lock is always released |
 | Compatibility | Playwright: Chromium, Firefox, WebKit × 3 sizes × 8 pages | Local 72 of 72; live 69 of 72 (WebKit, one page, see below) |
@@ -45,7 +46,7 @@ lines, a directory that fails the write test, and a journal write that fails
 (the review is then not stored). The GPU scorer's selection and fallback are
 tested without torch installed (the import is blocked or the detector replaced).
 
-**Result.** 108 passed in about 38 s
+**Result.** 114 passed in about 42 s
 (`pytest -m "not slow"` skips the one full 117-image analysis).
 
 **Added in this round.** A test that sends four uploads at the same moment
@@ -77,7 +78,7 @@ setting (the server's default until one is chosen, the choice sent with the queu
 a sample and an upload but not with reviews, kept after a reload, a stored setting
 the server does not know dropped, and blocked storage handled).
 
-**Result.** 38 tests in 6 files, all passing (`npm test`, about 2 seconds).
+**Result.** 39 tests in 7 files, all passing (`npm test`, about 2 seconds).
 
 ### End-to-end tests
 
@@ -200,6 +201,57 @@ The bootstrap resamples outcomes from the fixed cross-validation runs; it does
 not refit the thresholds inside each resample. It therefore measures
 uncertainty from the small cohort, not the variation in which threshold the
 training folds choose, which the spread across repeats in notebook 04 shows.
+
+### Reviewer accuracy
+
+**Why.** Every final figure above assumes the reviewer reads each referred
+sample correctly. Real reviewers make mistakes, and the two rules refer very
+different shares of patients, so a mistake costs them differently.
+
+**How.** [`scripts/reviewer_sensitivity.py`](../scripts/reviewer_sensitivity.py)
+takes the out-of-fold three-way counts from
+[`evidence/confusion.json`](evidence/confusion.json) (pooled over the 20
+repeats: 640 infected, 660 healthy decisions) and recomputes the final rates for
+a reviewer who reads a referred infected sample correctly with probability
+*a*<sub>inf</sub> and a referred healthy sample with probability *a*<sub>hea</sub>:
+
+```
+Sensitivity = (TP_auto + a_inf × referred infected) / infected
+Specificity = (TN_auto + a_hea × referred healthy)  / healthy
+```
+
+It first checks that its inputs reproduce `confusion.json` (at 100%, the
+96.9% / 96.7% and 100% / 96.5% above) and stops if they do not. The results are
+in [`evidence/reviewer_sensitivity.json`](evidence/reviewer_sensitivity.json);
+six pytest tests check the formula against hand-computed values.
+
+**Result.** Final sensitivity / specificity:
+
+| Reviewer accuracy | Triage | Triage with the safety margin |
+|---|---|---|
+| 100% | 96.9% / 96.7% | 100.0% / 96.5% |
+| 95% | 94.0% / 95.0% | 96.1% / 93.2% |
+| 90% | 91.1% / 93.3% | 92.2% / 89.9% |
+| 85% | 88.2% / 91.6% | 88.3% / 86.6% |
+| 80% | 85.2% / 89.9% | 84.4% / 83.3% |
+| 85% on infected, 95% on healthy | 88.2% / 95.0% | 88.3% / 93.2% |
+
+Each figure falls in proportion to the share of that class that is referred.
+The safety margin refers 78% of infected patients against 58% for triage, so its
+sensitivity falls faster: below a reviewer accuracy of 84.4% on infected samples,
+triage without the margin ends with the higher final sensitivity. Triage's final
+specificity is higher at every reviewer accuracy. The margin's gain therefore
+depends on reviewers who rarely miss eggs.
+
+**Assumptions.** The figures are expected values, with no intervals. Every
+referred sample of a class is read with the same accuracy; referred samples are
+the hard ones (few eggs), so a reviewer's accuracy on them may be lower than in
+general. Automatic decisions are unchanged, since the reviewer sees only
+referred samples. The rules are those of the cross-validation (triage and the
+safety margin), not the deployed Efficiency and Safety settings, whose figures
+in `confusion.json` are in-sample only. The mixed-accuracy row is an
+illustration (microscopists more often miss eggs than invent them), not a
+measurement; other values can be passed with `--a-inf` and `--a-hea`.
 
 ### Real samples
 

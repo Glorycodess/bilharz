@@ -1,0 +1,157 @@
+{
+  "description": "Final sensitivity and specificity of triage when the reviewer of referred samples is not always right. Expected values from the out-of-fold three-way counts; no intervals.",
+  "source": "docs/evidence/confusion.json, out_of_fold.<rule>: three_way counts and automatic_only_2x2",
+  "formula": {
+    "sensitivity": "(TP_auto + a_inf * referred_infected) / infected",
+    "specificity": "(TN_auto + a_hea * referred_healthy) / healthy",
+    "a_inf": "probability the reviewer reads a referred infected sample as infected",
+    "a_hea": "probability the reviewer reads a referred healthy sample as healthy"
+  },
+  "basis": "20 x 5-fold stratified cross-validation, nested threshold selection; counts pooled over the 20 repeats (1,300 decisions: 640 infected, 660 healthy). Per-repeat figures divide by 20.",
+  "assumptions": [
+    "Every reviewer has the same accuracy on every referred sample of a class, independent of the sample. Referred samples are the hard ones (few eggs), so a real reviewer's accuracy on them may be lower than their accuracy in general.",
+    "Automatic decisions are unchanged: the reviewer sees only referred samples.",
+    "The rules are those of the cross-validation (triage and safety_margin), not the deployed settings (efficiency and safety), whose figures in confusion.json are in-sample only."
+  ],
+  "accuracies": [
+    1.0,
+    0.95,
+    0.9,
+    0.85,
+    0.8
+  ],
+  "rules": {
+    "triage": {
+      "inputs": {
+        "infected": 640,
+        "healthy": 660,
+        "tp_auto": 248,
+        "fn_auto": 20,
+        "referred_infected": 372,
+        "tn_auto": 414,
+        "fp_auto": 22,
+        "referred_healthy": 224
+      },
+      "same_accuracy": [
+        {
+          "reviewer_sensitivity": 1.0,
+          "reviewer_specificity": 1.0,
+          "sensitivity": 0.96875,
+          "specificity": 0.9666666666666667,
+          "missed_infected_per_repeat": 1.0,
+          "false_positives_per_repeat": 1.1
+        },
+        {
+          "reviewer_sensitivity": 0.95,
+          "reviewer_specificity": 0.95,
+          "sensitivity": 0.9396875,
+          "specificity": 0.9496969696969696,
+          "missed_infected_per_repeat": 1.930000000000001,
+          "false_positives_per_repeat": 1.6600000000000024
+        },
+        {
+          "reviewer_sensitivity": 0.9,
+          "reviewer_specificity": 0.9,
+          "sensitivity": 0.9106249999999999,
+          "specificity": 0.9327272727272727,
+          "missed_infected_per_repeat": 2.860000000000002,
+          "false_positives_per_repeat": 2.219999999999999
+        },
+        {
+          "reviewer_sensitivity": 0.85,
+          "reviewer_specificity": 0.85,
+          "sensitivity": 0.8815625,
+          "specificity": 0.9157575757575758,
+          "missed_infected_per_repeat": 3.789999999999998,
+          "false_positives_per_repeat": 2.780000000000001
+        },
+        {
+          "reviewer_sensitivity": 0.8,
+          "reviewer_specificity": 0.8,
+          "sensitivity": 0.8525,
+          "specificity": 0.8987878787878788,
+          "missed_infected_per_repeat": 4.719999999999999,
+          "false_positives_per_repeat": 3.3399999999999976
+        }
+      ],
+      "different_accuracy_example": {
+        "reviewer_sensitivity": 0.85,
+        "reviewer_specificity": 0.95,
+        "sensitivity": 0.8815625,
+        "specificity": 0.9496969696969696,
+        "missed_infected_per_repeat": 3.789999999999998,
+        "false_positives_per_repeat": 1.6600000000000024
+      }
+    },
+    "safety_margin": {
+      "inputs": {
+        "infected": 640,
+        "healthy": 660,
+        "tp_auto": 140,
+        "fn_auto": 0,
+        "referred_infected": 500,
+        "tn_auto": 200,
+        "fp_auto": 23,
+        "referred_healthy": 437
+      },
+      "same_accuracy": [
+        {
+          "reviewer_sensitivity": 1.0,
+          "reviewer_specificity": 1.0,
+          "sensitivity": 1.0,
+          "specificity": 0.9651515151515152,
+          "missed_infected_per_repeat": 0.0,
+          "false_positives_per_repeat": 1.15
+        },
+        {
+          "reviewer_sensitivity": 0.95,
+          "reviewer_specificity": 0.95,
+          "sensitivity": 0.9609375,
+          "specificity": 0.9320454545454545,
+          "missed_infected_per_repeat": 1.25,
+          "false_positives_per_repeat": 2.242500000000001
+        },
+        {
+          "reviewer_sensitivity": 0.9,
+          "reviewer_specificity": 0.9,
+          "sensitivity": 0.921875,
+          "specificity": 0.8989393939393938,
+          "missed_infected_per_repeat": 2.5,
+          "false_positives_per_repeat": 3.335000000000002
+        },
+        {
+          "reviewer_sensitivity": 0.85,
+          "reviewer_specificity": 0.85,
+          "sensitivity": 0.8828125,
+          "specificity": 0.8658333333333335,
+          "missed_infected_per_repeat": 3.75,
+          "false_positives_per_repeat": 4.4274999999999975
+        },
+        {
+          "reviewer_sensitivity": 0.8,
+          "reviewer_specificity": 0.8,
+          "sensitivity": 0.84375,
+          "specificity": 0.8327272727272728,
+          "missed_infected_per_repeat": 5.0,
+          "false_positives_per_repeat": 5.519999999999999
+        }
+      ],
+      "different_accuracy_example": {
+        "reviewer_sensitivity": 0.85,
+        "reviewer_specificity": 0.95,
+        "sensitivity": 0.8828125,
+        "specificity": 0.9320454545454545,
+        "missed_infected_per_repeat": 3.75,
+        "false_positives_per_repeat": 2.242500000000001
+      }
+    }
+  },
+  "crossover_safety_margin_vs_triage": {
+    "sensitivity": 0.8437500000000002,
+    "specificity": null,
+    "meaning": "the reviewer accuracy below which safety_margin's final rate is lower than triage's (null if the rates do not cross between 0 and 1)"
+  },
+  "environment": {
+    "python": "3.13.3"
+  }
+}
