@@ -4,7 +4,7 @@
 gradio==6.30.0
 # Exact: app.py calls spaces.zero.startup(), which is not public API. Check
 # that it still exists before changing this version (see docs/architecture.md).
-spaces==0.51.3
+spaces==0.52.1
 torch==2.13.0
 torchvision==0.28.0
 # Backend: as api/requirements.txt, except where Gradio limits the version.

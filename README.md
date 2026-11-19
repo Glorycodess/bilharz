@@ -111,7 +111,7 @@ starts.
 | Node.js and npm | Node 20.19+ or 22.12+ (developed on Node 26.12, npm 11.20) |
 | Backend | FastAPI 0.162, Starlette 1.10, Pydantic 2.14 (2.12.5 on the Space), uvicorn 0.54 |
 | Model runtime | onnxruntime 1.31 (CPU); PyTorch 2.13 and torchvision 0.28 on the Space |
-| Space wrapper | Gradio 6.30 with `spaces` 0.51.3 (ZeroGPU) |
+| Space wrapper | Gradio 6.30 with `spaces` 0.52.1 (ZeroGPU) |
 | Frontend | React 19.3, React Router 7.18, Vite 8.3 |
 | Tests | pytest 9.1, Vitest 5.0, Testing Library, Playwright 1.64 |
 
